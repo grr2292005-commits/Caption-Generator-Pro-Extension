@@ -1,0 +1,138 @@
+/* --- MAIN WINDOW --- */
+QMainWindow {
+    background-color: #121212; /* Deep Matte Black */
+    color: #E0E0E0;
+    font-family: "Segoe UI", sans-serif;
+}
+
+/* --- TYPOGRAPHY --- */
+QLabel {
+    color: #CCCCCC;
+    font-size: 14px;
+    font-weight: 500;
+}
+QLabel#title {
+    font-size: 28px;
+    font-weight: bold;
+    color: #D32F2F; /* Fallback red */
+    /* Velvet Red Gradient Text Effect (Webkit only, subtle fallback) */
+    color: #FF5252; 
+}
+QLabel#status_ready { color: #888888; }
+QLabel#status_processing { color: #FF5252; font-weight: bold; }
+QLabel#status_done { color: #00E676; font-weight: bold; }
+
+/* --- BUTTONS --- */
+QPushButton {
+    /* Velvet Red Gradient */
+    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:1, stop:0 #8E0E00, stop:1 #1F1C18);
+    background-color: #990000; /* Solid fallback */
+    border: none;
+    border-radius: 8px;
+    color: white;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+QPushButton:hover {
+    background-color: #B71C1C; /* Brighter red on hover */
+    border: 1px solid #FF5252;
+}
+QPushButton:pressed {
+    background-color: #7F0000;
+}
+QPushButton:disabled {
+    background-color: #333333;
+    color: #666666;
+    border: none;
+}
+
+/* --- GROUP BOX --- */
+QGroupBox {
+    border: 1px solid #333333;
+    border-radius: 8px;
+    margin-top: 24px;
+    padding-top: 20px;
+    font-weight: bold;
+    color: #9E9E9E;
+    background-color: #1A1A1A; /* Slightly lighter black */
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 15px;
+    padding: 0 5px;
+    color: #FF5252; /* Red accent title */
+}
+
+/* --- INPUTS --- */
+QComboBox {
+    background-color: #252525;
+    color: white;
+    border: 1px solid #333;
+    border-radius: 5px;
+    padding: 5px 10px;
+}
+QComboBox:hover { border: 1px solid #990000; }
+QComboBox::drop-down { border: none; }
+
+QCheckBox { color: #CCCCCC; spacing: 8px; }
+QCheckBox::indicator {
+    width: 18px; 
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background: #252525;
+}
+QCheckBox::indicator:checked {
+    background-color: #990000;
+    border: 1px solid #FF5252;
+    image: url(none); /* You can add a check icon here if you want */
+}
+
+QRadioButton { color: #CCCCCC; spacing: 8px; }
+QRadioButton::indicator {
+    width: 18px; 
+    height: 18px;
+    border-radius: 10px;
+    border: 1px solid #555;
+    background: #252525;
+}
+QRadioButton::indicator:checked {
+    background-color: #990000;
+    border: 2px solid #FF5252;
+}
+
+/* --- SLIDERS --- */
+QSlider::groove:horizontal {
+    border: 1px solid #333;
+    height: 6px;
+    background: #252525;
+    margin: 2px 0;
+    border-radius: 3px;
+}
+QSlider::handle:horizontal {
+    background: #FF5252;
+    border: 1px solid #990000;
+    width: 16px;
+    height: 16px;
+    margin: -6px 0;
+    border-radius: 8px;
+}
+QSlider::handle:horizontal:hover {
+    background: #FF867C;
+}
+
+/* --- PROGRESS BAR --- */
+QProgressBar {
+    border: none;
+    background-color: #252525;
+    border-radius: 4px;
+    height: 8px;
+    text-align: center;
+}
+QProgressBar::chunk {
+    background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 #8E0E00, stop:1 #FF5252);
+    border-radius: 4px;
+}
