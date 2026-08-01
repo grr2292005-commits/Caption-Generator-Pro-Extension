@@ -156,6 +156,22 @@
     <!-- Tab 3: Settings -->
     <main id="tab-settings" class="tab-content">
         <div class="card">
+            <div class="card-title">License</div>
+            <div class="form-group" style="margin-bottom: 8px;">
+                <label for="licenseKeyInput">License Key:</label>
+                <input type="text" id="licenseKeyInput" placeholder="XXXX-XXXX-XXXX-XXXX" style="width: 100%; background-color: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-primary); padding: 6px 8px; font-size: 11px; font-family: monospace; border-radius: 4px; outline: none; margin-top: 4px; box-sizing: border-box;">
+            </div>
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <button class="btn-primary" id="btnActivateLicense" style="flex: 1; font-size: 11px; padding: 6px;">Activate License</button>
+                <button class="btn-secondary" id="btnDeactivateLicense" style="flex: 1; font-size: 11px; padding: 6px;">Deactivate This Computer</button>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                <span>Status:</span>
+                <span id="licenseStatus" style="font-weight: 600; color: var(--text-primary);">Checking...</span>
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-title">System & Requirements Status</div>
             <div id="requirementsListContainer" style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
                 <div style="text-align: center; color: var(--text-secondary); padding: 6px;">Checking system requirements...</div>
@@ -232,6 +248,7 @@
 
     <!-- Scripts -->
     <script src="js/installer.js"></script>
+    <script src="js/license.js"></script>
     <script src="js/editor.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/extendscript_bridge.js"></script>

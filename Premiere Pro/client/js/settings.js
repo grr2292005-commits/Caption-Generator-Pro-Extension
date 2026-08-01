@@ -18,6 +18,7 @@ var SettingsManager = {
         }
 
         this.load();
+        this.initLicenseSection();
         this.renderModelManager();
 
         // Update model storage path display
@@ -186,6 +187,103 @@ var SettingsManager = {
                 item.appendChild(actionsRow);
                 container.appendChild(item);
             });
+        });
+    },
+
+    initLicenseSection: function() {
+        var inputKey = document.getElementById("licenseKeyInput");
+        var btnActivate = document.getElementById("btnActivateLicense");
+        var btnDeactivate = document.getElementById("btnDeactivateLicense");
+        var lblStatus = document.getElementById("licenseStatus");
+
+        if (!lblStatus) return;
+
+        // Pre-fill input if key is stored
+        if (inputKey && typeof LicenseManager !== "undefined") {
+            var storedKey = LicenseManager.getStoredLicense();
+            if (storedKey) inputKey.value = storedKey;
+        }
+
+        // 1. Initial Validation Check on Panel Load
+        this.checkLicenseStatus();
+
+        // 2. Activate Button Click
+        if (btnActivate) {
+            btnActivate.addEventListener("click", function() {
+                var key = inputKey ? inputKey.value.trim() : "";
+                if (!key) {
+                    lblStatus.innerText = "Please enter a license key.";
+                    lblStatus.style.color = "#ff4d4d";
+                    return;
+                }
+
+                btnActivate.disabled = true;
+                lblStatus.innerText = "Checking...";
+                lblStatus.style.color = "var(--text-secondary)";
+
+                LicenseManager.activate(key, function(valid, message) {
+                    btnActivate.disabled = false;
+                    if (valid) {
+                        lblStatus.innerText = "Activated";
+                        lblStatus.style.color = "var(--accent-blue)";
+                        if (typeof showAlertModal === "function") {
+                            showAlertModal("License Activated", "Your license key has been successfully activated on this computer!");
+                        }
+                    } else {
+                        lblStatus.innerText = message || "Invalid / already used on another computer";
+                        lblStatus.style.color = "#ff4d4d";
+                        if (typeof showAlertModal === "function") {
+                            showAlertModal("License Notice", message || "License activation failed.");
+                        }
+                    }
+                });
+            });
+        }
+
+        // 3. Deactivate Button Click
+        if (btnDeactivate) {
+            btnDeactivate.addEventListener("click", function() {
+                if (typeof LicenseManager !== "undefined") {
+                    LicenseManager.clearLicense();
+                }
+                if (inputKey) inputKey.value = "";
+                lblStatus.innerText = "Not activated";
+                lblStatus.style.color = "var(--text-secondary)";
+                if (typeof showAlertModal === "function") {
+                    showAlertModal("License Deactivated", "License key removed from this computer.");
+                }
+            });
+        }
+    },
+
+    checkLicenseStatus: function() {
+        var lblStatus = document.getElementById("licenseStatus");
+        if (!lblStatus) return;
+
+        if (typeof LicenseManager === "undefined") {
+            lblStatus.innerText = "Not activated";
+            lblStatus.style.color = "var(--text-secondary)";
+            return;
+        }
+
+        var storedKey = LicenseManager.getStoredLicense();
+        if (!storedKey) {
+            lblStatus.innerText = "Not activated";
+            lblStatus.style.color = "var(--text-secondary)";
+            return;
+        }
+
+        lblStatus.innerText = "Checking...";
+        lblStatus.style.color = "var(--text-secondary)";
+
+        LicenseManager.validate(function(valid, message) {
+            if (valid) {
+                lblStatus.innerText = "Activated";
+                lblStatus.style.color = "var(--accent-blue)";
+            } else {
+                lblStatus.innerText = "Invalid / already used on another computer";
+                lblStatus.style.color = "#ff4d4d";
+            }
         });
     }
 };

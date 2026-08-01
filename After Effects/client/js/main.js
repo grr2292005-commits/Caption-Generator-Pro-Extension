@@ -330,65 +330,86 @@ function showInstallerModalForModel(modelKey) {
 }
 
 
+function ensureLicensedAction(actionName, callback) {
+    if (typeof LicenseManager === "undefined") {
+        if (typeof showAlertModal === "function") {
+            showAlertModal("License Required", "Please activate your license in the Settings tab.");
+        }
+        return;
+    }
+
+    LicenseManager.validate(function(valid, message) {
+        if (valid) {
+            callback();
+        } else {
+            if (typeof showAlertModal === "function") {
+                showAlertModal("License Required", "Please activate your license in the Settings tab.");
+            }
+        }
+    });
+}
+
 function runTranscribeWorkflow() {
-    var btn = document.getElementById("btnTranscribe");
-    if (!btn || btn.disabled) return;
+    ensureLicensedAction("transcribe", function() {
+        var btn = document.getElementById("btnTranscribe");
+        if (!btn || btn.disabled) return;
 
-    var originalText = "Transcribe Active Comp";
-    btn.disabled = true;
-    btn.innerText = "Processing...";
+        var originalText = "Transcribe Active Comp";
+        btn.disabled = true;
+        btn.innerText = "Processing...";
 
-    var proceedWithAudioPath = function(audioPath, projectDetails) {
-        btn.innerText = "Transcribing Speech AI...";
-        runPythonBackend(audioPath, projectDetails, function(backendRes) {
-            if (!backendRes || !backendRes.success) {
-                btn.disabled = false;
-                btn.innerText = originalText;
-                var rawErr = (backendRes && backendRes.error) ? backendRes.error : "Unknown backend engine error";
-                console.error("Transcription Engine Technical Log:", rawErr);
+        var proceedWithAudioPath = function(audioPath, projectDetails) {
+            btn.innerText = "Transcribing Speech AI...";
+            runPythonBackend(audioPath, projectDetails, function(backendRes) {
+                if (!backendRes || !backendRes.success) {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                    var rawErr = (backendRes && backendRes.error) ? backendRes.error : "Unknown backend engine error";
+                    console.error("Transcription Engine Technical Log:", rawErr);
 
-                if (rawErr.toLowerCase().indexOf("model") !== -1 || rawErr.toLowerCase().indexOf("not found") !== -1) {
-                    showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.");
-                } else {
-                    showAlertModal("Transcription Notice", "Transcription failed. Please try again or choose a different model.");
+                    if (rawErr.toLowerCase().indexOf("model") !== -1 || rawErr.toLowerCase().indexOf("not found") !== -1) {
+                        showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.");
+                    } else {
+                        showAlertModal("Transcription Notice", "Transcription failed. Please try again or choose a different model.");
+                    }
+                    return;
                 }
-                return;
-            }
 
-            btn.disabled = false;
-            btn.innerText = "Done!";
-            setTimeout(function() {
-                btn.innerText = originalText;
-            }, 1800);
-
-            // Load Cues directly into Subtitle Editor for user review & editing
-            SubtitleEditor.loadCaptions(backendRes.captions);
-
-            // Switch to Editor Tab so user can edit before pushing to sequence
-            var tabEditor = document.querySelector('.tab-btn[data-tab="tab-editor"]');
-            if (tabEditor) tabEditor.click();
-        });
-    };
-
-    ExtendScriptBridge.getProjectDetails(function(projectDetails) {
-        var tempAudioPath = getTempAudioPath();
-
-        ExtendScriptBridge.exportAudio(tempAudioPath, function(exportRes) {
-            if (!exportRes || !exportRes.success) {
                 btn.disabled = false;
-                btn.innerText = originalText;
-                var rawErr = (exportRes && exportRes.error) ? exportRes.error : "No comp media found";
-                console.warn("Active Comp Audio Export Technical Log:", rawErr);
+                btn.innerText = "Done!";
+                setTimeout(function() {
+                    btn.innerText = originalText;
+                }, 1800);
 
-                if (rawErr.toLowerCase().indexOf("composition") !== -1 || rawErr.toLowerCase().indexOf("comp") !== -1) {
-                    showAlertModal("Active Composition Required", "Could not read the active composition. Make sure a composition is open.");
-                } else {
-                    showAlertModal("Timeline Clip Required", "No audio or video clip found on the timeline. Please add a clip first.");
+                // Load Cues directly into Subtitle Editor for user review & editing
+                SubtitleEditor.loadCaptions(backendRes.captions);
+
+                // Switch to Editor Tab so user can edit before pushing to sequence
+                var tabEditor = document.querySelector('.tab-btn[data-tab="tab-editor"]');
+                if (tabEditor) tabEditor.click();
+            });
+        };
+
+        ExtendScriptBridge.getProjectDetails(function(projectDetails) {
+            var tempAudioPath = getTempAudioPath();
+
+            ExtendScriptBridge.exportAudio(tempAudioPath, function(exportRes) {
+                if (!exportRes || !exportRes.success) {
+                    btn.disabled = false;
+                    btn.innerText = originalText;
+                    var rawErr = (exportRes && exportRes.error) ? exportRes.error : "No comp media found";
+                    console.warn("Active Comp Audio Export Technical Log:", rawErr);
+
+                    if (rawErr.toLowerCase().indexOf("composition") !== -1 || rawErr.toLowerCase().indexOf("comp") !== -1) {
+                        showAlertModal("Active Composition Required", "Could not read the active composition. Make sure a composition is open.");
+                    } else {
+                        showAlertModal("Timeline Clip Required", "No audio or video clip found on the timeline. Please add a clip first.");
+                    }
+                    return;
                 }
-                return;
-            }
 
-            proceedWithAudioPath(exportRes.audioPath, projectDetails);
+                proceedWithAudioPath(exportRes.audioPath, projectDetails);
+            });
         });
     });
 }
@@ -516,101 +537,105 @@ function showConfirmModal(title, message, onYes, onNo) {
 var importCounter = 1;
 
 function importSubtitlesToSequence() {
-    var btn = document.getElementById("btnApplyEdits");
-    var originalText = "Create Subtitles";
+    ensureLicensedAction("import", function() {
+        var btn = document.getElementById("btnApplyEdits");
+        var originalText = "Create Subtitles";
 
-    var captions = SubtitleEditor.captions;
-    if (!captions || captions.length === 0) {
-        showAlertModal("No Subtitles", "No subtitles available to create. Please transcribe a composition first.");
-        return;
-    }
+        var captions = SubtitleEditor.captions;
+        if (!captions || captions.length === 0) {
+            showAlertModal("No Subtitles", "No subtitles available to create. Please transcribe a composition first.");
+            return;
+        }
 
-    if (!btn || btn.disabled) return;
-    btn.disabled = true;
-    btn.innerText = "Processing...";
+        if (!btn || btn.disabled) return;
+        btn.disabled = true;
+        btn.innerText = "Processing...";
 
-    var methodSelect = document.getElementById("selectImportMethod");
-    var importMethod = methodSelect ? methodSelect.value : "direct";
+        var methodSelect = document.getElementById("selectImportMethod");
+        var importMethod = methodSelect ? methodSelect.value : "direct";
 
-    var chkRemove = document.getElementById("chkRemoveOldSubtitles");
-    var replaceExisting = chkRemove ? chkRemove.checked : true;
+        var chkRemove = document.getElementById("chkRemoveOldSubtitles");
+        var replaceExisting = chkRemove ? chkRemove.checked : true;
 
-    if (typeof require !== "undefined") {
-        var fs = require("fs");
-        var path = require("path");
+        if (typeof require !== "undefined") {
+            var fs = require("fs");
+            var path = require("path");
 
-        var now = new Date();
-        var pad = function(n) { return n < 10 ? '0' + n : String(n); };
-        var timeStr = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
-        
-        var filename = "Sub_v" + importCounter + "_" + timeStr;
-        importCounter++;
+            var now = new Date();
+            var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+            var timeStr = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+            
+            var filename = "Sub_v" + importCounter + "_" + timeStr;
+            importCounter++;
 
-        var tempSrt = path.join(getTempFolder(), filename + ".srt");
-        var tempJson = path.join(getTempFolder(), filename + ".json");
+            var tempSrt = path.join(getTempFolder(), filename + ".srt");
+            var tempJson = path.join(getTempFolder(), filename + ".json");
 
-        var srtContent = "";
-        captions.forEach(function(cap, i) {
-            srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
-        });
-        fs.writeFileSync(tempSrt, srtContent, "utf-8");
-        fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
+            var srtContent = "";
+            captions.forEach(function(cap, i) {
+                srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
+            });
+            fs.writeFileSync(tempSrt, srtContent, "utf-8");
+            fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
-        ExtendScriptBridge.importSubtitles(tempSrt, tempJson, importMethod, replaceExisting, function(res) {
+            ExtendScriptBridge.importSubtitles(tempSrt, tempJson, importMethod, replaceExisting, function(res) {
+                btn.disabled = false;
+                if (!res || !res.success) {
+                    btn.innerText = originalText;
+                    console.error("Subtitle creation technical error:", res && res.error);
+                    showAlertModal("Import Notice", "Could not create text layers in the composition. Please make sure a composition is active and try again.");
+                    return;
+                }
+
+                btn.innerText = "Done!";
+                setTimeout(function() {
+                    btn.innerText = originalText;
+                }, 1800);
+
+                showAlertModal("Subtitles Created", "Subtitles created successfully in your composition!");
+            });
+        } else {
             btn.disabled = false;
-            if (!res || !res.success) {
-                btn.innerText = originalText;
-                console.error("Subtitle creation technical error:", res && res.error);
-                showAlertModal("Import Notice", "Could not create text layers in the composition. Please make sure a composition is active and try again.");
-                return;
-            }
-
             btn.innerText = "Done!";
             setTimeout(function() {
                 btn.innerText = originalText;
             }, 1800);
-
-            showAlertModal("Subtitles Created", "Subtitles created successfully in your composition!");
-        });
-    } else {
-        btn.disabled = false;
-        btn.innerText = "Done!";
-        setTimeout(function() {
-            btn.innerText = originalText;
-        }, 1800);
-        showAlertModal("Preview Mode", "Subtitles created in active comp (Preview Mode).");
-    }
+            showAlertModal("Preview Mode", "Subtitles created in active comp (Preview Mode).");
+        }
+    });
 }
 
 function exportSRTFile() {
-    var captions = SubtitleEditor.captions;
-    if (!captions || captions.length === 0) {
-        showAlertModal("No Subtitles", "No subtitles available to export.");
-        return;
-    }
-
-    if (typeof require !== "undefined") {
-        var fs = require("fs");
-        var path = require("path");
-        var os = require("os");
-        var desktopPath = path.join(os.homedir(), "Desktop", "captions.srt");
-
-        var srtContent = "";
-        captions.forEach(function(cap, i) {
-            srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
-        });
-
-        try {
-            fs.writeFileSync(desktopPath, srtContent, "utf-8");
-            showAlertModal("SRT Exported", "Subtitle file (.srt) exported successfully to your Desktop:\n" + desktopPath.replace(/\\/g, "/"));
-        } catch(e) {
-            var tempPath = path.join(getTempFolder(), "captions.srt");
-            fs.writeFileSync(tempPath, srtContent, "utf-8");
-            showAlertModal("SRT Exported", "Subtitle file (.srt) exported to:\n" + tempPath.replace(/\\/g, "/"));
+    ensureLicensedAction("export", function() {
+        var captions = SubtitleEditor.captions;
+        if (!captions || captions.length === 0) {
+            showAlertModal("No Subtitles", "No subtitles available to export.");
+            return;
         }
-    } else {
-        showAlertModal("SRT Exported", "Subtitle file (.srt) exported (Preview Mode).");
-    }
+
+        if (typeof require !== "undefined") {
+            var fs = require("fs");
+            var path = require("path");
+            var os = require("os");
+            var desktopPath = path.join(os.homedir(), "Desktop", "captions.srt");
+
+            var srtContent = "";
+            captions.forEach(function(cap, i) {
+                srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
+            });
+
+            try {
+                fs.writeFileSync(desktopPath, srtContent, "utf-8");
+                showAlertModal("SRT Exported", "Subtitle file (.srt) exported successfully to your Desktop:\n" + desktopPath.replace(/\\/g, "/"));
+            } catch(e) {
+                var tempPath = path.join(getTempFolder(), "captions.srt");
+                fs.writeFileSync(tempPath, srtContent, "utf-8");
+                showAlertModal("SRT Exported", "Subtitle file (.srt) exported to:\n" + tempPath.replace(/\\/g, "/"));
+            }
+        } else {
+            showAlertModal("SRT Exported", "Subtitle file (.srt) exported (Preview Mode).");
+        }
+    });
 }
 
 function showAlertModal(title, message) {
