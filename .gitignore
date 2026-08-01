@@ -1,13 +1,4 @@
+node_modules/
+release/
+*.tmp
 __pycache__/
-*.py[cod]
-*$py.class
-bin/
-*.zip
-*.log
-.venv/
-venv/
-ENV/
-env/
-.env
-.vscode/
-.idea/

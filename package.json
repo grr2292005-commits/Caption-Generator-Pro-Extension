@@ -1,0 +1,22 @@
+{
+  "name": "caption-generator-pro-extension",
+  "version": "1.0.0",
+  "description": "AI-powered subtitle/caption generator extensions for Adobe Premiere Pro and After Effects using OpenAI Whisper",
+  "main": "obfuscate-release.js",
+  "scripts": {
+    "build:release": "node obfuscate-release.js"
+  },
+  "keywords": [
+    "premiere-pro",
+    "after-effects",
+    "whisper",
+    "captions",
+    "subtitles",
+    "adobe-cep"
+  ],
+  "author": "Rameswar",
+  "license": "Proprietary",
+  "dependencies": {
+    "javascript-obfuscator": "^4.1.1"
+  }
+}
