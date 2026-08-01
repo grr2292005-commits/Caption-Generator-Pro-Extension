@@ -23,10 +23,14 @@ var SubtitleEditor = {
         if (!container || !counter) return;
 
         container.innerHTML = "";
-        counter.innerText = this.captions.length + " Subtitles";
+        var total = this.captions.length;
+        counter.innerText = total + (total === 1 ? " Subtitle" : " Subtitles");
 
-        if (this.captions.length === 0) {
-            container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); margin-top: 30px;">No transcript loaded yet.<br>Click Transcribe to generate captions.</div>';
+        if (total === 0) {
+            container.innerHTML = '<div style="text-align: center; color: var(--text-secondary); margin-top: 30px; padding: 20px 15px; background: var(--bg-dark); border: 1px dashed var(--border-color); border-radius: 6px; font-size: 11px; line-height: 1.6;">' +
+                '<div style="font-weight: 700; color: var(--text-primary); margin-bottom: 4px; font-size: 12px;">No captions yet.</div>' +
+                '<div>Go to the Transcribe tab and click \'Transcribe Active Comp\' to generate subtitles.</div>' +
+                '</div>';
             return;
         }
 

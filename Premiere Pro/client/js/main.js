@@ -1,3 +1,88 @@
+// User Preferences Persistence (localStorage)
+var UserPreferences = {
+    STORAGE_KEY: "cgp_user_prefs",
+
+    defaults: {
+        model: "base",
+        maxChars: 37,
+        maxDur: 30,
+        gapFrames: 0,
+        lineMode: "double",
+        removeFillers: true,
+        translate: false,
+        versioning: true,
+        hardware: "cuda"
+    },
+
+    load: function() {
+        try {
+            var stored = localStorage.getItem(this.STORAGE_KEY);
+            if (stored) {
+                return Object.assign({}, this.defaults, JSON.parse(stored));
+            }
+        } catch(e) {}
+        return Object.assign({}, this.defaults);
+    },
+
+    save: function(prefs) {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
+        } catch(e) {}
+    },
+
+    gather: function() {
+        var prefs = {};
+        var sel = document.getElementById("selectModel");
+        if (sel) prefs.model = sel.value;
+        var sChars = document.getElementById("sliderMaxChars");
+        if (sChars) prefs.maxChars = parseInt(sChars.value, 10);
+        var sDur = document.getElementById("sliderMaxDur");
+        if (sDur) prefs.maxDur = parseInt(sDur.value, 10);
+        var sGap = document.getElementById("sliderGapFrames");
+        if (sGap) prefs.gapFrames = parseInt(sGap.value, 10);
+        var radios = document.querySelectorAll('input[name="lineMode"]');
+        radios.forEach(function(r) { if (r.checked) prefs.lineMode = r.value; });
+        var chkFill = document.getElementById("chkRemoveFillers");
+        if (chkFill) prefs.removeFillers = chkFill.checked;
+        var chkTrans = document.getElementById("chkTranslate");
+        if (chkTrans) prefs.translate = chkTrans.checked;
+        var chkVer = document.getElementById("chkVersioning");
+        if (chkVer) prefs.versioning = chkVer.checked;
+        var selHw = document.getElementById("selectHardware");
+        if (selHw) prefs.hardware = selHw.value;
+        return prefs;
+    },
+
+    restore: function(prefs) {
+        var sel = document.getElementById("selectModel");
+        if (sel) sel.value = prefs.model || this.defaults.model;
+        var sChars = document.getElementById("sliderMaxChars");
+        var lblChars = document.getElementById("lblMaxCharsVal");
+        if (sChars) { sChars.value = prefs.maxChars; if (lblChars) lblChars.innerText = prefs.maxChars; }
+        var sDur = document.getElementById("sliderMaxDur");
+        var lblDur = document.getElementById("lblMaxDurVal");
+        if (sDur) { sDur.value = prefs.maxDur; if (lblDur) lblDur.innerText = (prefs.maxDur / 10.0).toFixed(1) + "s"; }
+        var sGap = document.getElementById("sliderGapFrames");
+        var lblGap = document.getElementById("lblGapFramesVal");
+        if (sGap) { sGap.value = prefs.gapFrames; if (lblGap) lblGap.innerText = prefs.gapFrames + " frames"; }
+        var radios = document.querySelectorAll('input[name="lineMode"]');
+        radios.forEach(function(r) { r.checked = (r.value === (prefs.lineMode || "double")); });
+        var chkFill = document.getElementById("chkRemoveFillers");
+        if (chkFill) chkFill.checked = prefs.removeFillers !== false;
+        var chkTrans = document.getElementById("chkTranslate");
+        if (chkTrans) chkTrans.checked = prefs.translate === true;
+        var chkVer = document.getElementById("chkVersioning");
+        if (chkVer) chkVer.checked = prefs.versioning !== false;
+        var selHw = document.getElementById("selectHardware");
+        if (selHw) selHw.value = prefs.hardware || "cuda";
+    },
+
+    autoSave: function() {
+        var self = this;
+        this.save(this.gather());
+    }
+};
+
 // Main Application Panel Controller
 document.addEventListener("DOMContentLoaded", function() {
     // 1. Tab Navigation Logic
@@ -13,12 +98,17 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     });
 
-    // 2. Transcribe Sliders
+    // 2. Restore saved preferences BEFORE setting up listeners
+    var savedPrefs = UserPreferences.load();
+    UserPreferences.restore(savedPrefs);
+
+    // 3. Transcribe Sliders with auto-save
     var sChars = document.getElementById("sliderMaxChars");
     var lblChars = document.getElementById("lblMaxCharsVal");
     if (sChars && lblChars) {
         sChars.addEventListener("input", function() {
             lblChars.innerText = sChars.value;
+            UserPreferences.autoSave();
         });
     }
 
@@ -27,6 +117,7 @@ document.addEventListener("DOMContentLoaded", function() {
     if (sDur && lblDur) {
         sDur.addEventListener("input", function() {
             lblDur.innerText = (parseFloat(sDur.value) / 10.0).toFixed(1) + "s";
+            UserPreferences.autoSave();
         });
     }
 
@@ -35,15 +126,17 @@ document.addEventListener("DOMContentLoaded", function() {
     if (sGap && lblGap) {
         sGap.addEventListener("input", function() {
             lblGap.innerText = sGap.value + " frames";
+            UserPreferences.autoSave();
         });
     }
 
-    // Reset Buttons for Sliders
+    // Reset Buttons for Sliders (also auto-save)
     var rChars = document.getElementById("resetMaxChars");
     if (rChars && sChars && lblChars) {
         rChars.addEventListener("click", function() {
             sChars.value = 37;
             lblChars.innerText = "37";
+            UserPreferences.autoSave();
         });
     }
 
@@ -52,6 +145,7 @@ document.addEventListener("DOMContentLoaded", function() {
         rDur.addEventListener("click", function() {
             sDur.value = 30;
             lblDur.innerText = "3.0s";
+            UserPreferences.autoSave();
         });
     }
 
@@ -60,14 +154,28 @@ document.addEventListener("DOMContentLoaded", function() {
         rGap.addEventListener("click", function() {
             sGap.value = 0;
             lblGap.innerText = "0 frames";
+            UserPreferences.autoSave();
         });
     }
 
-    // 3. Initialize Sub-Managers
+    // Auto-save on model, radio, and checkbox changes
+    var selectModel = document.getElementById("selectModel");
+    if (selectModel) selectModel.addEventListener("change", function() { UserPreferences.autoSave(); });
+
+    var radios = document.querySelectorAll('input[name="lineMode"]');
+    radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });
+
+    var chkIds = ["chkRemoveFillers", "chkTranslate", "chkVersioning"];
+    chkIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener("change", function() { UserPreferences.autoSave(); });
+    });
+
+    // 4. Initialize Sub-Managers
     SubtitleEditor.init();
     SettingsManager.init();
 
-    // 4. UI Buttons
+    // 5. UI Buttons
     var btnTranscribe = document.getElementById("btnTranscribe");
     var btnApplyEdits = document.getElementById("btnApplyEdits");
     var btnExportSRT = document.getElementById("btnExportSRT");
@@ -107,10 +215,14 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Silent background dependency check (populates installed model dropdown)
+    // 6. Silent background dependency check (populates installed model dropdown)
     DependencyInstaller.checkStatus(function(status) {
         if (status && status.installed_models) {
             updateModelDropdown(status.installed_models);
+            // Re-apply saved model selection after dropdown is populated
+            var savedModel = UserPreferences.load().model;
+            var sel = document.getElementById("selectModel");
+            if (sel && savedModel) sel.value = savedModel;
         }
     });
 });
@@ -213,19 +325,34 @@ function showInstallerModalForModel(modelKey) {
 
 function runTranscribeWorkflow() {
     var btn = document.getElementById("btnTranscribe");
+    if (!btn || btn.disabled) return;
+
+    var originalText = "Transcribe Timeline";
     btn.disabled = true;
     btn.innerText = "Processing...";
 
     var proceedWithAudioPath = function(audioPath, projectDetails) {
         btn.innerText = "Transcribing Speech AI...";
         runPythonBackend(audioPath, projectDetails, function(backendRes) {
-            btn.disabled = false;
-            btn.innerText = "Transcribe Timeline";
-
             if (!backendRes || !backendRes.success) {
-                showAlertModal("Engine Error", "Transcription Engine Error. Please check model files or console logs.");
+                btn.disabled = false;
+                btn.innerText = originalText;
+                var rawErr = (backendRes && backendRes.error) ? backendRes.error : "Unknown backend engine error";
+                console.error("Transcription Engine Technical Log:", rawErr);
+
+                if (rawErr.toLowerCase().indexOf("model") !== -1 || rawErr.toLowerCase().indexOf("not found") !== -1) {
+                    showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.");
+                } else {
+                    showAlertModal("Transcription Notice", "Transcription failed. Please try again or choose a different model.");
+                }
                 return;
             }
+
+            btn.disabled = false;
+            btn.innerText = "Done!";
+            setTimeout(function() {
+                btn.innerText = originalText;
+            }, 1800);
 
             // Load Cues directly into Subtitle Editor for user review & editing
             SubtitleEditor.loadCaptions(backendRes.captions);
@@ -242,9 +369,15 @@ function runTranscribeWorkflow() {
         ExtendScriptBridge.exportAudio(tempAudioPath, function(exportRes) {
             if (!exportRes || !exportRes.success) {
                 btn.disabled = false;
-                btn.innerText = "Transcribe Timeline";
-                var errMsg = (exportRes && exportRes.error) ? exportRes.error : "Could not automatically read media clip from active sequence.";
-                showAlertModal("Timeline Media Notice", errMsg);
+                btn.innerText = originalText;
+                var rawErr = (exportRes && exportRes.error) ? exportRes.error : "No sequence media found";
+                console.warn("Timeline Audio Export Technical Log:", rawErr);
+
+                if (rawErr.toLowerCase().indexOf("sequence") !== -1) {
+                    showAlertModal("Active Sequence Required", "Could not read the active sequence. Make sure a sequence is open.");
+                } else {
+                    showAlertModal("Timeline Clip Required", "No audio or video clip found on the timeline. Please add a clip first.");
+                }
                 return;
             }
 
@@ -335,11 +468,18 @@ function runPythonBackend(audioPath, projectDetails, callback) {
 var importCounter = 1;
 
 function importSubtitlesToSequence() {
+    var btn = document.getElementById("btnApplyEdits");
+    var originalText = "Create Subtitles";
+
     var captions = SubtitleEditor.captions;
     if (!captions || captions.length === 0) {
-        showAlertModal("No Subtitles", "No subtitles available to import.");
+        showAlertModal("No Subtitles", "No subtitles available to import. Please transcribe a sequence first.");
         return;
     }
+
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.innerText = "Processing...";
 
     if (typeof require !== "undefined") {
         var fs = require("fs");
@@ -366,12 +506,28 @@ function importSubtitlesToSequence() {
         fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
         ExtendScriptBridge.importSubtitles(tempSrt, tempJson, "standard", function(res) {
-            var mainMsg = (res && res.message) ? res.message : "Subtitles imported successfully!";
-            var fullMessage = mainMsg + "\n\nFile Path:\n" + tempSrt.replace(/\\/g, "/");
-            showAlertModal("Subtitles Imported", fullMessage);
+            btn.disabled = false;
+            if (!res || !res.success) {
+                btn.innerText = originalText;
+                console.error("Subtitle import technical error:", res && res.error);
+                showAlertModal("Import Notice", "Could not create subtitles on the timeline. Please make sure a sequence is active and try again.");
+                return;
+            }
+
+            btn.innerText = "Done!";
+            setTimeout(function() {
+                btn.innerText = originalText;
+            }, 1800);
+
+            showAlertModal("Subtitles Created", "Subtitles created successfully on your sequence!");
         });
     } else {
-        showAlertModal("Preview Mode", "Subtitles imported to sequence (Preview Mode).");
+        btn.disabled = false;
+        btn.innerText = "Done!";
+        setTimeout(function() {
+            btn.innerText = originalText;
+        }, 1800);
+        showAlertModal("Preview Mode", "Subtitles created on sequence (Preview Mode).");
     }
 }
 

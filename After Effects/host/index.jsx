@@ -33,7 +33,7 @@ $._PPP_.getProjectDetails = function() {
 $._PPP_.exportAudio = function() {
     try {
         if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
-            return "ERR|No active composition found. Please select an active composition in After Effects.";
+            return "ERR|Could not read the active composition. Make sure a composition is open.";
         }
 
         var comp = app.project.activeItem;
@@ -71,7 +71,7 @@ $._PPP_.exportAudio = function() {
             return "OK|" + mediaPath.replace(/\\/g, "/");
         }
 
-        return "ERR|No active footage with audio found in comp '" + comp.name + "'.";
+        return "ERR|No audio or video clip found on the timeline. Please add a clip first.";
     } catch (e) {
         return "ERR|" + e.toString();
     }
@@ -101,191 +101,111 @@ function parseSRTText(srtStr) {
 
 function parseSrtTime(tStr) {
     if (!tStr) return 0;
-    var trimmed = tStr.replace(/^\s+|\s+$/g, "").replace(",", ".");
-    var parts = trimmed.split(":");
+    var clean = tStr.replace(/^\s+|\s+$/g, "").replace(",", ".");
+    var parts = clean.split(":");
     if (parts.length === 3) {
-        var h = parseFloat(parts[0]) || 0;
-        var m = parseFloat(parts[1]) || 0;
-        var s = parseFloat(parts[2]) || 0;
+        var h = parseFloat(parts[0]);
+        var m = parseFloat(parts[1]);
+        var s = parseFloat(parts[2]);
         return (h * 3600) + (m * 60) + s;
     }
     return 0;
 }
 
-$._PPP_.hasExistingSubtitles = function() {
-    try {
-        if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
-            return "NO";
+function removeExistingSubtitleLayers(targetComp) {
+    if (!targetComp) return;
+    for (var i = targetComp.numLayers; i >= 1; i--) {
+        var l = targetComp.layer(i);
+        if (l && l.comment === "CGP_SUBTITLE") {
+            l.remove();
         }
-        var comp = app.project.activeItem;
-        for (var i = 1; i <= comp.numLayers; i++) {
-            var ly = comp.layer(i);
-            if (ly && (ly.comment === "CGP_SUBTITLE" || ly.name === "Captions_PreComp" || ly.name.indexOf("Sub_") === 0)) {
-                return "YES";
-            }
-        }
-        return "NO";
-    } catch (e) {
-        return "NO";
     }
-};
+}
 
 $._PPP_.importSubtitles = function(srtPath, jsonPath, importMethod, replaceExisting) {
     try {
-        if (!app.project) {
-            return "ERR|No project open in After Effects.";
+        if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
+            return "ERR|Could not read the active composition. Make sure a composition is open.";
         }
 
-        var mainComp = app.project.activeItem;
-        if (!mainComp || !(mainComp instanceof CompItem)) {
-            return "ERR|Please select an active Composition in After Effects timeline panel before creating subtitles.";
+        var comp = app.project.activeItem;
+        var srtFile = new File(srtPath);
+        if (!srtFile.exists) {
+            return "ERR|Subtitle file missing. Please try transcribing again.";
         }
 
-        var cues = [];
+        srtFile.open("r");
+        var content = srtFile.read();
+        srtFile.close();
 
-        // Try reading JSON file first
-        var targetFile = new File(jsonPath);
-        if (!targetFile.exists) {
-            targetFile = new File(srtPath);
+        var cues = parseSRTText(content);
+        if (cues.length === 0) {
+            return "ERR|No subtitles found in file.";
         }
 
-        if (!targetFile.exists) {
-            return "ERR|Subtitle file not found at: " + srtPath;
-        }
+        app.beginUndoGroup("Create Subtitles - Caption Generator Pro");
 
-        targetFile.open("r");
-        var rawText = targetFile.read();
-        targetFile.close();
+        var targetComp = comp;
+        var isPrecomp = (importMethod === "precomp");
 
-        if (!rawText || rawText.length === 0) {
-            return "ERR|Subtitle file is empty.";
-        }
-
-        if (rawText.indexOf("[") !== -1 && rawText.indexOf("{") !== -1) {
-            try {
-                cues = eval("(" + rawText + ")");
-            } catch (e) {}
-        }
-
-        if (!cues || cues.length === 0) {
-            cues = parseSRTText(rawText);
-        }
-
-        if (!cues || cues.length === 0) {
-            return "ERR|No subtitle cues could be parsed from file.";
-        }
-
-        app.beginUndoGroup("Import Subtitles to AE");
-
-        var targetComp = mainComp;
-        var isPreComp = (importMethod === "precomp");
-
-        // Remove existing subtitle layers if replaceExisting is requested
-        var doReplace = (replaceExisting === true || replaceExisting === "true" || replaceExisting === 1 || replaceExisting === "1");
-        if (doReplace) {
-            for (var l = mainComp.numLayers; l >= 1; l--) {
-                var oldLy = mainComp.layer(l);
-                if (oldLy && (oldLy.comment === "CGP_SUBTITLE" || oldLy.name === "Captions_PreComp" || oldLy.name.indexOf("Sub_") === 0)) {
-                    try { oldLy.remove(); } catch(remErr) {}
+        if (isPrecomp) {
+            if (replaceExisting) {
+                for (var p = comp.numLayers; p >= 1; p--) {
+                    var pl = comp.layer(p);
+                    if (pl && pl.name === "Subtitles Precomp") {
+                        pl.remove();
+                    }
                 }
             }
-        }
 
-        if (isPreComp) {
-            var preName = "Captions_PreComp";
-            targetComp = app.project.items.addComp(
-                preName,
-                mainComp.width,
-                mainComp.height,
-                mainComp.pixelAspect,
-                mainComp.duration,
-                mainComp.frameRate
-            );
+            var precompItem = app.project.items.addComp("Subtitles Precomp", comp.width, comp.height, comp.pixelAspect, comp.duration, comp.frameRate);
+            comp.layers.add(precompItem);
+            targetComp = precompItem;
+        } else {
+            if (replaceExisting) {
+                removeExistingSubtitleLayers(targetComp);
+            }
         }
 
         var compWidth = targetComp.width;
         var compHeight = targetComp.height;
-        var createdCount = 0;
 
         for (var i = 0; i < cues.length; i++) {
             var cue = cues[i];
             var txt = cue.text;
-            if (!txt || txt.length === 0) continue;
 
-            var startSec = parseFloat(cue.start) || 0;
-            var endSec = parseFloat(cue.end) || (startSec + 2.0);
-
-            // Create Native Vector Text Layer (Double-clickable & fully editable)
             var textLayer = targetComp.layers.addText(txt);
-            textLayer.name = txt; // Name set exactly to text content
-            textLayer.comment = "CGP_SUBTITLE"; // Tag for future replacement check
+            textLayer.comment = "CGP_SUBTITLE";
+            textLayer.name = txt;
 
-            textLayer.inPoint = startSec;
-            textLayer.outPoint = endSec;
+            textLayer.inPoint = cue.start;
+            textLayer.outPoint = cue.end;
 
-            // Apply Text Formatting via Source Text FIRST
-            try {
-                var sourceTextProp = textLayer.property("Source Text");
-                if (sourceTextProp) {
-                    var textDoc = sourceTextProp.value;
-                    textDoc.text = txt;
-                    textDoc.fontSize = Math.round(compHeight * 0.045); // Scale font size relative to comp height
-                    textDoc.fillColor = [1, 1, 1]; // White text
-                    textDoc.applyFill = true;
-                    textDoc.strokeColor = [0, 0, 0]; // Black outline
-                    textDoc.applyStroke = true;
-                    textDoc.strokeWidth = Math.max(2, Math.round(textDoc.fontSize * 0.06));
-                    textDoc.justification = ParagraphJustification.CENTER_JUSTIFY;
-                    sourceTextProp.setValue(textDoc);
-                }
-            } catch (styleErr) {}
+            var textProp = textLayer.property("Source Text");
+            var textDocument = textProp.value;
 
-            // Perfect Center Bounding Box & Anchor Point Alignment
-            try {
-                var rect = textLayer.sourceRectAtTime(startSec, false);
-                if (rect && rect.width > 0) {
-                    var anchorX = rect.left + (rect.width / 2);
-                    var anchorY = rect.top + (rect.height / 2);
-                    var anchorProp = textLayer.property("ADBE Transform Group").property("ADBE Anchor Point");
-                    if (anchorProp) {
-                        anchorProp.setValue([anchorX, anchorY]);
-                    }
-                }
-            } catch (rectErr) {}
+            textDocument.fontSize = compHeight * 0.045;
+            textDocument.fillColor = [1, 1, 1];
+            textDocument.applyFill = true;
+            textDocument.strokeColor = [0, 0, 0];
+            textDocument.strokeWidth = compHeight * 0.004;
+            textDocument.applyStroke = true;
+            textDocument.font = "Arial-BoldMT";
+            textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
 
-            // Position at horizontal center (50% compWidth), 85% compHeight
-            var posProp = textLayer.property("ADBE Transform Group").property("ADBE Position");
-            if (posProp) {
-                posProp.setValue([compWidth / 2, compHeight * 0.85]);
-            }
+            textProp.setValue(textDocument);
 
-            createdCount++;
-        }
+            var bounds = textLayer.sourceRectAtTime(cue.start, false);
+            var anchorX = bounds.left + bounds.width / 2;
+            var anchorY = bounds.top + bounds.height / 2;
 
-        if (isPreComp) {
-            // Add preComp into mainComp timeline
-            var preLayer = mainComp.layers.add(targetComp);
-            preLayer.name = "Captions_PreComp";
-            preLayer.comment = "CGP_SUBTITLE";
+            textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
+            textLayer.property("Position").setValue([compWidth / 2, compHeight * 0.85]);
         }
 
         app.endUndoGroup();
 
-        var locationStr = isPreComp ? "in pre-comp 'Captions_PreComp'" : "directly in active comp '" + mainComp.name + "'";
-        return "OK|Successfully created " + createdCount + " perfectly centered text layers " + locationStr + "!";
-    } catch (e) {
-        return "ERR|" + e.toString();
-    }
-};
-
-$._PPP_.setPlayhead = function(seconds) {
-    try {
-        var secNum = parseFloat(seconds) || 0;
-        if (app.project && app.project.activeItem && app.project.activeItem instanceof CompItem) {
-            app.project.activeItem.time = secNum;
-            return "OK|Playhead moved to " + secNum + "s";
-        }
-        return "ERR|No active composition";
+        return "OK|Subtitles created successfully in active comp!|Count:" + cues.length;
     } catch (e) {
         return "ERR|" + e.toString();
     }

@@ -13,6 +13,7 @@ var SettingsManager = {
             selHw.addEventListener("change", function() {
                 self.settings.hardware = selHw.value;
                 self.save();
+                if (typeof UserPreferences !== "undefined") UserPreferences.autoSave();
             });
         }
 

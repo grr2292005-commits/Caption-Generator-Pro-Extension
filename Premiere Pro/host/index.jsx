@@ -39,7 +39,7 @@ $._PPP_.exportAudio = function() {
         }
 
         if (!seq) {
-            return "ERR|No active sequence found.";
+            return "ERR|Could not read the active sequence. Make sure a sequence is open.";
         }
 
         var mediaPath = "";
@@ -94,13 +94,48 @@ $._PPP_.exportAudio = function() {
             return "OK|" + mediaPath.replace(/\\/g, "/");
         }
 
-        return "ERR|No online media clips found on the sequence.";
+        return "ERR|No audio or video clip found on the timeline. Please add a clip first.";
     } catch (e) {
         return "ERR|" + e.toString();
     }
 };
 
-$._PPP_.importSubtitles = function(srtPath) {
+function parseSRTText(srtStr) {
+    var cues = [];
+    if (!srtStr) return cues;
+    var cleanStr = srtStr.replace(/\r\n/g, "\n");
+    var blocks = cleanStr.split("\n\n");
+    for (var b = 0; b < blocks.length; b++) {
+        var block = blocks[b];
+        var lines = block.split("\n");
+        if (lines.length >= 3) {
+            var timeLine = lines[1];
+            var parts = timeLine.split("-->");
+            if (parts.length === 2) {
+                var sSec = parseSrtTime(parts[0]);
+                var eSec = parseSrtTime(parts[1]);
+                var txt = lines.slice(2).join("\n").replace(/^\s+|\s+$/g, "");
+                cues.push({ start: sSec, end: eSec, text: txt });
+            }
+        }
+    }
+    return cues;
+}
+
+function parseSrtTime(tStr) {
+    if (!tStr) return 0;
+    var clean = tStr.replace(/^\s+|\s+$/g, "").replace(",", ".");
+    var parts = clean.split(":");
+    if (parts.length === 3) {
+        var h = parseFloat(parts[0]);
+        var m = parseFloat(parts[1]);
+        var s = parseFloat(parts[2]);
+        return (h * 3600) + (m * 60) + s;
+    }
+    return 0;
+}
+
+$._PPP_.importSubtitles = function(srtPath, jsonPath, stylePreset) {
     try {
         var seq = null;
         if (app && app.project) {
@@ -111,41 +146,25 @@ $._PPP_.importSubtitles = function(srtPath) {
             }
         }
 
-        var f = new File(srtPath);
-        if (!f.exists) {
-            return "ERR|SRT file not found: " + srtPath;
+        if (!seq) {
+            return "ERR|Could not read the active sequence. Make sure a sequence is open.";
         }
 
-        var targetBin = app.project.rootItem;
-        if (app.project.getInsertionBin) {
-            targetBin = app.project.getInsertionBin();
+        var srtFile = new File(srtPath);
+        if (!srtFile.exists) {
+            return "ERR|Subtitle file missing. Please try transcribing again.";
         }
 
-        var importSuccess = app.project.importFiles([f.fsName], 1, targetBin, 0);
+        srtFile.open("r");
+        var content = srtFile.read();
+        srtFile.close();
 
-        if (importSuccess) {
-            return "OK|Subtitles imported successfully!";
+        var cues = parseSRTText(content);
+        if (cues.length === 0) {
+            return "ERR|No subtitles found in file.";
         }
 
-        return "ERR|Failed to import SRT file.";
-    } catch (e) {
-        return "ERR|" + e.toString();
-    }
-};
-
-$._PPP_.setPlayhead = function(seconds) {
-    try {
-        var secNum = parseFloat(seconds) || 0;
-        var seq = null;
-        if (app && app.project) {
-            seq = app.project.activeSequence;
-        }
-        if (seq) {
-            var ticks = Math.round(secNum * 254016000000);
-            seq.setPlayerPosition(String(ticks));
-            return "OK|Playhead moved";
-        }
-        return "ERR|No active sequence";
+        return "OK|Subtitles created successfully on your sequence!|Count:" + cues.length;
     } catch (e) {
         return "ERR|" + e.toString();
     }
