@@ -190,6 +190,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     if (btnApplyEdits) {
         btnApplyEdits.addEventListener("click", function() {
+            console.log("[CaptionGeneratorPro] #btnApplyEdits clicked");
             importSubtitlesToSequence();
         });
     }
@@ -489,19 +490,23 @@ function runPythonBackend(audioPath, projectDetails, callback) {
 var importCounter = 1;
 
 function importSubtitlesToSequence() {
+    console.log("[CaptionGeneratorPro] importSubtitlesToSequence() triggered.");
+
+    var captions = SubtitleEditor.captions;
+    if (!captions || captions.length === 0) {
+        console.warn("[CaptionGeneratorPro] importSubtitlesToSequence: captions list is empty.");
+        showAlertModal("No Subtitles", "No subtitles available. Please transcribe first.");
+        return;
+    }
+
     ensureLicensedAction("import", function() {
         var btn = document.getElementById("btnApplyEdits");
         var originalText = "Create Subtitles";
 
-        var captions = SubtitleEditor.captions;
-        if (!captions || captions.length === 0) {
-            showAlertModal("No Subtitles", "No subtitles available to import. Please transcribe a sequence first.");
-            return;
+        if (btn) {
+            btn.disabled = true;
+            btn.innerText = "Processing...";
         }
-
-        if (!btn || btn.disabled) return;
-        btn.disabled = true;
-        btn.innerText = "Processing...";
 
         if (typeof require !== "undefined") {
             var fs = require("fs");
@@ -527,28 +532,35 @@ function importSubtitlesToSequence() {
             // Write updated JSON
             fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
+            console.log("[CaptionGeneratorPro] Invoking ExtendScriptBridge.importSubtitles with:", tempSrt);
+
             ExtendScriptBridge.importSubtitles(tempSrt, tempJson, "standard", function(res) {
-                btn.disabled = false;
+                if (btn) btn.disabled = false;
                 if (!res || !res.success) {
-                    btn.innerText = originalText;
-                    console.error("Subtitle import technical error:", res && res.error);
-                    showAlertModal("Import Notice", "Could not create subtitles on the timeline. Please make sure a sequence is active and try again.");
+                    if (btn) btn.innerText = originalText;
+                    var rawErr = (res && res.error) ? res.error : "Unknown import error";
+                    console.error("Subtitle import technical error:", rawErr);
+                    showAlertModal("Import Notice", "Could not create subtitles on the timeline: " + rawErr);
                     return;
                 }
 
-                btn.innerText = "Done!";
-                setTimeout(function() {
-                    btn.innerText = originalText;
-                }, 1800);
+                if (btn) {
+                    btn.innerText = "Done!";
+                    setTimeout(function() {
+                        btn.innerText = originalText;
+                    }, 1800);
+                }
 
                 showAlertModal("Subtitles Created", "Subtitles created successfully on your sequence!");
             });
         } else {
-            btn.disabled = false;
-            btn.innerText = "Done!";
-            setTimeout(function() {
-                btn.innerText = originalText;
-            }, 1800);
+            if (btn) {
+                btn.disabled = false;
+                btn.innerText = "Done!";
+                setTimeout(function() {
+                    btn.innerText = originalText;
+                }, 1800);
+            }
             showAlertModal("Preview Mode", "Subtitles created on sequence (Preview Mode).");
         }
     });
