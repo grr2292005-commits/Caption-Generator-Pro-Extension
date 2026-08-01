@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Caption Generator Pro</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/lib/CSInterface.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="brand">
+            <img src="../logo.png" alt="Logo" id="appLogo">
+        <div class="logo-area">
+            <span class="app-title">Caption Generator Pro</span>
+            <span class="app-version" style="background: rgba(153, 153, 255, 0.2); color: #9999FF;">AE</span>
+        </div>
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="tab-transcribe">Transcribe</button>
+            <button class="tab-btn" data-tab="tab-editor">Editor</button>
+            <button class="tab-btn" data-tab="tab-settings">Settings</button>
+        </nav>
+    </header>
+
+    <!-- Tab 1: Transcribe Settings -->
+    <main id="tab-transcribe" class="tab-content active">
+        <div class="card">
+            <div class="card-title">Model Selection</div>
+            <div class="form-group">
+                <label for="selectModel">Speech Model:</label>
+                <select id="selectModel">
+                    <option value="base">Base (Fast / Standard Accuracy - 145MB)</option>
+                    <option value="small">Small (Balanced Speed & Accuracy - 480MB)</option>
+                    <option value="medium">Medium (High Accuracy - 1.5GB)</option>
+                    <option value="large-v3">Large-v3 (Maximum Accuracy - 3GB)</option>
+                    <option value="tiny">Tiny (Fastest / Low Accuracy - 75MB)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">After Effects Settings</div>
+
+            <!-- Import Method -->
+            <div class="form-group">
+                <label for="selectImportMethod">Import Method in AE:</label>
+                <select id="selectImportMethod">
+                    <option value="direct">Direct Text Layers in Comp</option>
+                    <option value="precomp">Pre-comp All Subtitle Layers</option>
+                </select>
+            </div>
+            
+            <!-- Max Characters -->
+            <div class="form-group">
+                <div class="label-row">
+                    <label for="sliderMaxChars">Max Characters Per Line:</label>
+                    <div class="badge-group">
+                        <span class="val-badge" id="lblMaxCharsVal">37</span>
+                        <span class="reset-icon" id="resetMaxChars" title="Reset to default (37)">↻</span>
+                    </div>
+                </div>
+                <input type="range" id="sliderMaxChars" min="15" max="80" value="37">
+            </div>
+
+            <!-- Max Duration -->
+            <div class="form-group">
+                <div class="label-row">
+                    <label for="sliderMaxDur">Max Duration (Seconds):</label>
+                    <div class="badge-group">
+                        <span class="val-badge" id="lblMaxDurVal">3.0s</span>
+                        <span class="reset-icon" id="resetMaxDur" title="Reset to default (3.0s)">↻</span>
+                    </div>
+                </div>
+                <input type="range" id="sliderMaxDur" min="10" max="100" value="30">
+            </div>
+
+            <!-- Gap Frames -->
+            <div class="form-group">
+                <div class="label-row">
+                    <label for="sliderGapFrames">Gap (Frames):</label>
+                    <div class="badge-group">
+                        <span class="val-badge" id="lblGapFramesVal">0 frames</span>
+                        <span class="reset-icon" id="resetGapFrames" title="Reset to default (0)">↻</span>
+                    </div>
+                </div>
+                <input type="range" id="sliderGapFrames" min="0" max="10" value="0">
+            </div>
+
+            <!-- Line Mode -->
+            <div class="form-group">
+                <label>Line Mode:</label>
+                <div class="radio-group">
+                    <label class="radio-label">
+                        <input type="radio" name="lineMode" value="double" checked>
+                        <span>Double Lines</span>
+                    </label>
+                    <label class="radio-label">
+                        <input type="radio" name="lineMode" value="single">
+                        <span>Single Line</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">AI Options</div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkRemoveFillers" checked>
+                    <span>Remove Filler Words ("um", "uh", "like")</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkTranslate">
+                    <span>Translate Speech to English</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="chkVersioning" checked>
+                    <span>Store Version Folders (PROJECT_NAME_VER_x)</span>
+                </label>
+            </div>
+        </div>
+
+        <button class="btn-primary" id="btnTranscribe">
+            Transcribe Active Comp
+        </button>
+    </main>
+
+    <!-- Tab 2: Subtitle Editor -->
+    <main id="tab-editor" class="tab-content">
+        <div class="editor-container">
+            <div class="editor-toolbar">
+                <span style="font-weight: 700;" id="cueCounter">0 Subtitles</span>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn-secondary" id="btnAddCue">+ Add Cue</button>
+                </div>
+            </div>
+
+            <div class="cue-list" id="cueList">
+                <div style="text-align: center; color: var(--text-secondary); margin-top: 40px;">
+                    No transcript loaded yet.<br>Click "Transcribe Active Comp" to process speech audio into cues.
+                </div>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button class="btn-primary" id="btnApplyEdits" style="flex: 2;">
+                Create Subtitles
+            </button>
+
+            <button class="btn-secondary" id="btnExportSRT" style="flex: 1;">
+                Export .SRT
+            </button>
+        </div>
+
+        <div style="display: flex; align-items: center; margin-top: 8px; font-size: 11px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text-secondary);">
+                <input type="checkbox" id="chkRemoveOldSubtitles" checked style="accent-color: var(--accent-blue);">
+                Remove old subtitles when creating new ones
+            </label>
+        </div>
+    </main>
+
+    <!-- Tab 3: Settings -->
+    <main id="tab-settings" class="tab-content">
+        <div class="card">
+            <div class="card-title">System & Requirements Status</div>
+            <div id="requirementsListContainer" style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+                <div style="text-align: center; color: var(--text-secondary); padding: 6px;">Checking system requirements...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Hardware Acceleration</div>
+            <div class="form-group">
+                <label for="selectHardware">Processing Device:</label>
+                <select id="selectHardware">
+                    <option value="cuda">NVIDIA GPU (CUDA Acceleration)</option>
+                    <option value="cpu">CPU Mode (Universal Compatibility)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Speech Models Manager</div>
+            <div class="model-list" id="modelListContainer">
+                <!-- Dynamically Populated by settings.js -->
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Model Storage Location</div>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
+                Speech models (.pt) are downloaded and cached in your user profile:
+                <div id="lblModelPath" style="background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 8px; font-family: monospace; font-size: 10px; color: var(--accent-blue); margin-top: 6px; word-break: break-all; user-select: all;">
+                    %USERPROFILE%/.cache/whisper
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Extension Status</div>
+            <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.6;">
+                Engine: Whisper Fast CLI (CTranslate2)<br>
+                Status: Operational (Offline Mode)<br>
+                Version: 1.0.0 Pro
+            </div>
+        </div>
+    </main>
+
+    <!-- Downloader Modal -->
+    <div class="modal-overlay" id="installerModal" style="display: none;">
+        <div class="modal-content" style="max-width: 360px;">
+            <div class="modal-title" id="installerModalTitle">Downloading Speech Model</div>
+            <div class="status-log" id="statusLog" style="font-weight: 600;">Initializing download...</div>
+            <div id="statusMetrics" style="font-size: 10px; color: var(--accent-blue); font-family: monospace; margin-top: 4px; text-align: center; display: none;"></div>
+            <div class="progress-bar-container" style="margin-top: 8px;">
+                <div class="progress-bar-fill" id="progressFill" style="width: 0%;"></div>
+            </div>
+            <div class="modal-actions-row" style="margin-top: 12px;">
+                <button class="btn-secondary" id="btnModalCancel">Cancel</button>
+                <button class="btn-primary" id="btnModalClose" style="display: none;">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Professional Alert Modal -->
+    <div class="modal-overlay" id="alertModal" style="display: none;">
+        <div class="modal-content" style="max-width: 340px; text-align: left; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <span id="alertModalTitle" style="font-weight: 700; font-size: 12px; color: var(--text-primary);">Notification</span>
+                <span id="btnAlertClose" style="cursor: pointer; font-size: 14px; color: var(--text-secondary);">&times;</span>
+            </div>
+            <div id="alertModalBody" style="font-size: 11px; color: var(--text-primary); line-height: 1.5; word-break: break-word;"></div>
+            <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
+                <button id="btnAlertOk" class="btn-primary" style="padding: 4px 14px; font-size: 11px;">OK</button>
+            </div>
+        </div>
+    <!-- Custom Professional Confirm Modal -->
+    <div class="modal-overlay" id="confirmModal" style="display: none;">
+        <div class="modal-content" style="max-width: 360px; text-align: left; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                <span id="confirmModalTitle" style="font-weight: 700; font-size: 12px; color: var(--text-primary);">Existing Subtitles Detected</span>
+                <span id="btnConfirmClose" style="cursor: pointer; font-size: 14px; color: var(--text-secondary);">&times;</span>
+            </div>
+            <div id="confirmModalBody" style="font-size: 11px; color: var(--text-primary); line-height: 1.5; word-break: break-word;">
+                Existing subtitle layers were found in your active comp. Would you like to remove the older subtitle layers before creating new ones?
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px;">
+                <button id="btnConfirmNo" class="btn-secondary" style="padding: 4px 12px; font-size: 11px;">Keep Older</button>
+                <button id="btnConfirmYes" class="btn-primary" style="padding: 4px 14px; font-size: 11px;">Remove Older</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/installer.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/extendscript_bridge.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
