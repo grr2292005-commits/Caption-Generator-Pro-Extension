@@ -135,8 +135,36 @@ function parseSrtTime(tStr) {
     return 0;
 }
 
+function findProjectItem(bin, searchName, searchPath) {
+    if (!bin || !bin.children) return null;
+    var cleanPath = searchPath ? searchPath.replace(/\\/g, "/").toLowerCase() : "";
+    var cleanName = searchName ? searchName.toLowerCase() : "";
+
+    for (var i = 0; i < bin.children.numItems; i++) {
+        var item = bin.children[i];
+        if (!item) continue;
+
+        if (item.getMediaPath) {
+            var mp = item.getMediaPath();
+            if (mp && mp.replace(/\\/g, "/").toLowerCase() === cleanPath) {
+                return item;
+            }
+        }
+        if (item.name && item.name.toLowerCase() === cleanName) {
+            return item;
+        }
+
+        if (item.type === 2 || (item.children && item.children.numItems > 0)) { // 2 = BIN
+            var subFound = findProjectItem(item, searchName, searchPath);
+            if (subFound) return subFound;
+        }
+    }
+    return null;
+}
+
 $._PPP_.importSubtitles = function(srtPath, jsonPath, stylePreset) {
     try {
+        // 1. Validate Active Sequence
         var seq = null;
         if (app && app.project) {
             if (app.project.activeSequence) {
@@ -147,24 +175,91 @@ $._PPP_.importSubtitles = function(srtPath, jsonPath, stylePreset) {
         }
 
         if (!seq) {
-            return "ERR|Could not read the active sequence. Make sure a sequence is open.";
+            return "ERR|Could not read the active sequence. Make sure a sequence is open in Premiere Pro.";
         }
 
+        // 2. Validate SRT File Exists
         var srtFile = new File(srtPath);
         if (!srtFile.exists) {
-            return "ERR|Subtitle file missing. Please try transcribing again.";
+            return "ERR|Subtitle SRT file missing on disk: " + srtPath;
         }
 
-        srtFile.open("r");
-        var content = srtFile.read();
-        srtFile.close();
-
-        var cues = parseSRTText(content);
-        if (cues.length === 0) {
-            return "ERR|No subtitles found in file.";
+        // 3. Import SRT File into Premiere Pro Project Bin
+        var filePaths = [srtFile.fsName];
+        var importSuccess = false;
+        
+        try {
+            var targetBin = app.project.getInsertionBin();
+            importSuccess = app.project.importFiles(filePaths, true, targetBin, false);
+        } catch(e1) {
+            try {
+                importSuccess = app.project.importFiles(filePaths);
+            } catch(e2) {
+                importSuccess = false;
+            }
         }
 
-        return "OK|Subtitles created successfully on your sequence!|Count:" + cues.length;
+        if (!importSuccess) {
+            return "ERR|Premiere Pro failed to import the SRT file into Project Panel.";
+        }
+
+        // 4. Locate the Imported ProjectItem in Project Panel
+        var importedItem = findProjectItem(app.project.rootItem, srtFile.name, srtFile.fsName);
+        if (!importedItem) {
+            return "ERR|Imported SRT file could not be located in Project Panel.";
+        }
+
+        // 5. Add / Insert Subtitle Clip onto Active Sequence Timeline
+        var addedToTimeline = false;
+
+        // Try 5A: Premiere Pro Caption Track API (if supported)
+        if (typeof seq.createCaptionTrack !== "undefined") {
+            try {
+                var capTrack = seq.createCaptionTrack(importedItem, 0, 0);
+                if (capTrack) addedToTimeline = true;
+            } catch(errCap) {}
+        }
+
+        // Try 5B: Insert onto top video track
+        if (!addedToTimeline && seq.videoTracks && seq.videoTracks.numTracks > 0) {
+            try {
+                var targetTrack = seq.videoTracks[seq.videoTracks.numTracks - 1];
+                if (!targetTrack) targetTrack = seq.videoTracks[0];
+
+                if (targetTrack) {
+                    var timePosition = 0;
+                    if (typeof seq.getInPoint === "function") {
+                        timePosition = seq.getInPoint();
+                    }
+
+                    if (typeof targetTrack.insertClip === "function") {
+                        targetTrack.insertClip(importedItem, timePosition);
+                        addedToTimeline = true;
+                    } else if (typeof targetTrack.overwriteClip === "function") {
+                        targetTrack.overwriteClip(importedItem, timePosition);
+                        addedToTimeline = true;
+                    }
+                }
+            } catch(errVideo) {}
+        }
+
+        // Try 5C: Fallback insert onto first video track
+        if (!addedToTimeline && seq.videoTracks && seq.videoTracks.numTracks > 0) {
+            try {
+                var v1 = seq.videoTracks[0];
+                if (v1 && typeof v1.insertClip === "function") {
+                    v1.insertClip(importedItem, 0);
+                    addedToTimeline = true;
+                }
+            } catch(errV1) {}
+        }
+
+        if (!addedToTimeline) {
+            return "ERR|SRT file imported into Project Panel, but failed to insert clip onto sequence timeline.";
+        }
+
+        return "OK|Subtitles imported into Project Panel and added to active sequence timeline!";
+
     } catch (e) {
         return "ERR|" + e.toString();
     }
