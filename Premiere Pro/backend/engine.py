@@ -5,6 +5,35 @@ import json
 import re
 from datetime import timedelta
 
+def translate_text(text, target_lang):
+    if not text or not target_lang or target_lang in ["none", "auto"]:
+        return text
+    # 1. Try deep_translator if available
+    try:
+        from deep_translator import GoogleTranslator
+        res = GoogleTranslator(source='auto', target=target_lang).translate(text)
+        if res:
+            return res
+    except Exception:
+        pass
+
+    # 2. Standard library fallback via Google Translate API
+    try:
+        import urllib.request
+        import urllib.parse
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + target_lang + "&dt=t&q=" + urllib.parse.quote(text)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data and isinstance(data, list) and len(data) > 0 and data[0]:
+                translated_parts = [item[0] for item in data[0] if item and item[0]]
+                if translated_parts:
+                    return "".join(translated_parts)
+    except Exception as err:
+        print(f"Google translate fallback error: {err}")
+    
+    return text
+
 class CaptionBackend:
     def __init__(self, base_dir=None):
         self.base_dir = base_dir or os.getcwd()
@@ -82,19 +111,6 @@ class CaptionBackend:
             except Exception as e2:
                 print(f"Standard whisper failed: {e2}")
                 raise e2
-
-        # Non-English Target Translation Fallback
-        if target_language not in ["none", "en"]:
-            try:
-                from deep_translator import GoogleTranslator
-                translator = GoogleTranslator(source='auto', target=target_language)
-                for seg in result_segments:
-                    if seg.get("text"):
-                        translated = translator.translate(seg["text"])
-                        if translated:
-                            seg["text"] = translated
-            except Exception as tr_err:
-                print(f"Target language translation to '{target_language}' failed: {tr_err}. Returning original captions.")
 
         # Process words into structured caption cues AND word-level timestamps
         captions = []
@@ -192,7 +208,38 @@ class CaptionBackend:
                         "end": round(float(seg.get("end", 1.0)), 3)
                     })
 
-        return captions, words_output
+        # Non-English Target Translation: Translate Cues and Words
+        translation_warning = None
+        if target_language not in ["none", "en"]:
+            print(f"Translating captions and words to target language '{target_language}'...")
+            try:
+                # 1. Translate caption cues
+                for cap in captions:
+                    if cap.get("text"):
+                        lines = cap["text"].split("\n")
+                        t_lines = []
+                        for line in lines:
+                            l_str = line.strip()
+                            if l_str:
+                                t_res = translate_text(l_str, target_language)
+                                t_lines.append(t_res if t_res else l_str)
+                            else:
+                                t_lines.append("")
+                        cap["text"] = "\n".join(t_lines)
+
+                # 2. Translate word array items
+                for w_item in words_output:
+                    if w_item.get("word"):
+                        w_raw = w_item["word"].strip()
+                        if w_raw:
+                            t_w = translate_text(w_raw, target_language)
+                            if t_w:
+                                w_item["word"] = t_w
+            except Exception as tr_err:
+                print(f"Target language translation to '{target_language}' failed: {tr_err}")
+                translation_warning = f"Translation to '{target_language}' failed ({str(tr_err)}). Using original audio text."
+
+        return captions, words_output, translation_warning
 
     def format_lines(self, text, mode):
         if mode == "double":
@@ -277,7 +324,7 @@ def main():
     backend = CaptionBackend()
 
     try:
-        captions, words_list = backend.transcribe_audio(
+        captions, words_list, tr_warning = backend.transcribe_audio(
             audio_path=args.audio,
             model_name=args.model,
             device=args.device,
@@ -300,6 +347,8 @@ def main():
             "captions": captions,
             "words": words_list
         }
+        if tr_warning:
+            res["warning"] = tr_warning
 
         print("---RESULT_JSON_START---")
         print(json.dumps(res))

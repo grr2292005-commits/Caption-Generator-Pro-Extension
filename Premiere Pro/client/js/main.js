@@ -469,6 +469,10 @@ function runTranscribeWorkflow() {
                 // Load Cues and Word Timestamps directly into Subtitle Editor for user review & editing
                 SubtitleEditor.loadCaptions(backendRes.captions, backendRes.words);
 
+                if (backendRes.warning) {
+                    showAlertModal("Translation Warning", backendRes.warning);
+                }
+
                 // Switch to Editor Tab so user can edit before pushing to sequence
                 var tabEditor = document.querySelector('.tab-btn[data-tab="tab-editor"]');
                 if (tabEditor) tabEditor.click();
