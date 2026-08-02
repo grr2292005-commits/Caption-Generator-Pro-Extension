@@ -195,7 +195,7 @@ fs.writeFileSync(path.join(RELEASE_DIR, "uninstall.bat"), uninstallBatContent, "
 
 // 3. SETUP_GUIDE.txt
 const setupGuideContent = `================================================================
-          CAPTION GENERATOR PRO - QUICK SETUP GUIDE
+          CAPTION GENERATOR PRO v2.0.0 - QUICK SETUP GUIDE
 ================================================================
 
 Step 1: Install Extensions
@@ -214,9 +214,20 @@ Step 4: Activate Your License
 Step 5: Download Speech Model
   - Under 'Speech Models Manager' in Settings, click 'Download Model' on Base or Small.
 
-Step 6: Generate Subtitles
-  - Go to 'Transcribe' tab and click 'Transcribe Timeline' (or 'Transcribe Active Comp').
-  - Edit cues in the 'Editor' tab if desired, then click 'Create Subtitles'!
+Step 6: Configure Language & Caption Style
+  - In 'Transcribe' tab, select your Source Audio Language (or Auto).
+  - Optionally pick a Translate To target language.
+  - Choose a Caption Style Preset:
+    * Standard (Default Subtitles)
+    * Clean Professional (Lower-third minimalist)
+    * Hormozi Pop (Bold center pop-in animations)
+    * Karaoke Highlight (Word-by-word active glow)
+    * Podcast Soft (Minimalist audio subtitles)
+
+Step 7: Transcribe & Create Styled Subtitles
+  - Click 'Transcribe Timeline' (or 'Transcribe Active Comp').
+  - Review / edit cues in the 'Editor' tab (view real-time Style badge).
+  - Click 'Create Subtitles' to generate styled caption elements directly on your timeline!
 
 ================================================================
 Support & License Help: Contact your vendor / support channel.
