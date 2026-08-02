@@ -1143,16 +1143,42 @@ function applyStylizedCaptionsFromTab() {
         }
 
         // Process item chunking if words per layer is 1, 2, or 3
+        var fallbackNotice = null;
         var finalItems = [];
-        if (styleConfig.wordsPerLayer !== "full" && words && words.length > 0) {
+
+        if (styleConfig.wordsPerLayer !== "full") {
             var chunkSize = parseInt(styleConfig.wordsPerLayer, 10) || 1;
-            for (var i = 0; i < words.length; i += chunkSize) {
-                var chunk = words.slice(i, i + chunkSize);
-                var chunkText = chunk.map(function(w) { return w.word; }).join(" ");
-                finalItems.push({
-                    text: chunkText,
-                    start: chunk[0].start,
-                    end: chunk[chunk.length - 1].end
+            
+            // Filter words if applyScope is 'selected'
+            var targetWords = words;
+            if (styleConfig.applyScope === "selected" && SubtitleEditor.selectedIndex !== undefined && SubtitleEditor.selectedIndex >= 0) {
+                var selCue = captions[SubtitleEditor.selectedIndex];
+                if (selCue) {
+                    targetWords = words.filter(function(w) {
+                        if (w.cue_index !== undefined) return w.cue_index === SubtitleEditor.selectedIndex;
+                        return w.start >= (selCue.start - 0.05) && w.end <= (selCue.end + 0.05);
+                    });
+                }
+            }
+
+            if (targetWords && targetWords.length > 0) {
+                for (var i = 0; i < targetWords.length; i += chunkSize) {
+                    var chunk = targetWords.slice(i, i + chunkSize);
+                    var chunkText = chunk.map(function(w) { return (w.word || "").toString().trim(); }).join(" ").trim();
+                    var cStart = parseFloat(chunk[0].start) || 0;
+                    var cEnd = parseFloat(chunk[chunk.length - 1].end) || (cStart + 0.3);
+                    if (cEnd <= cStart) cEnd = cStart + 0.2;
+
+                    finalItems.push({
+                        text: chunkText,
+                        start: Math.round(cStart * 1000) / 1000,
+                        end: Math.round(cEnd * 1000) / 1000
+                    });
+                }
+            } else {
+                fallbackNotice = "Word-level timestamps missing for selected mode. Falling back to full cue layout.";
+                finalItems = targetCaptions.map(function(c) {
+                    return { text: c.text, start: c.start, end: c.end };
                 });
             }
         } else {
@@ -1180,12 +1206,20 @@ function applyStylizedCaptionsFromTab() {
                     var err = (res && res.error) ? res.error : "Failed to apply stylized captions.";
                     showAlertModal("Stylize Notice", err);
                 } else {
-                    showAlertModal("Success", "Stylized captions applied successfully to timeline!");
+                    if (fallbackNotice) {
+                        showAlertModal("Notice", fallbackNotice);
+                    } else {
+                        showAlertModal("Success", "Stylized captions applied successfully to timeline!");
+                    }
                 }
             });
         } else {
             if (btn) { btn.disabled = false; btn.innerText = originalText; }
-            showAlertModal("Success", "Stylized captions applied (Browser Preview Mode)!");
+            if (fallbackNotice) {
+                showAlertModal("Notice", fallbackNotice);
+            } else {
+                showAlertModal("Success", "Stylized captions applied (Browser Preview Mode)!");
+            }
         }
     });
 }

@@ -286,22 +286,22 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
         var compWidth = targetComp.width;
         var compHeight = targetComp.height;
 
-        // Choose items (words if kinetic/karaoke and words exist; otherwise captions)
+        // Prefer payload.captions (which contains pre-chunked items from Stylize tab)
         var items = [];
-        if ((style.mode === "kinetic" || style.mode === "karaoke") && words && words.length > 0) {
-            for (var w = 0; w < words.length; w++) {
-                items.push({
-                    text: words[w].word,
-                    start: words[w].start,
-                    end: words[w].end
-                });
-            }
-        } else {
+        if (captions && captions.length > 0) {
             for (var c = 0; c < captions.length; c++) {
                 items.push({
                     text: captions[c].text,
                     start: captions[c].start,
                     end: captions[c].end
+                });
+            }
+        } else if (words && words.length > 0) {
+            for (var w = 0; w < words.length; w++) {
+                items.push({
+                    text: words[w].word,
+                    start: words[w].start,
+                    end: words[w].end
                 });
             }
         }
