@@ -114,34 +114,26 @@
         <div class="card">
             <div class="card-title">Language & Translation</div>
             <div class="form-group">
-                <label for="selectSourceLang">Source Audio Language:</label>
-                <select id="selectSourceLang">
-                    <option value="auto">Auto (Detect Automatically)</option>
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="hi">Hindi</option>
-                    <option value="ta">Tamil</option>
-                    <option value="te">Telugu</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="pt">Portuguese</option>
-                    <option value="ar">Arabic</option>
-                    <option value="ja">Japanese</option>
-                    <option value="ko">Korean</option>
-                    <option value="zh">Chinese</option>
-                </select>
+                <label for="inputSourceLang">Source Audio Language:</label>
+                <div class="search-select" id="containerSourceLang">
+                    <input type="text" id="inputSourceLang" class="search-select-input" value="Auto (Detect Automatically)" placeholder="Search language..." readonly>
+                    <input type="hidden" id="selectSourceLang" value="auto">
+                    <div class="search-select-dropdown" id="dropdownSourceLang">
+                        <input type="text" class="search-select-filter" placeholder="Type language name...">
+                        <div class="search-select-options"></div>
+                    </div>
+                </div>
             </div>
             <div class="form-group">
-                <label for="selectTargetLang">Translate To:</label>
-                <select id="selectTargetLang">
-                    <option value="none">None (Original Language)</option>
-                    <option value="en">English</option>
-                    <option value="es">Spanish</option>
-                    <option value="hi">Hindi</option>
-                    <option value="fr">French</option>
-                    <option value="de">German</option>
-                    <option value="pt">Portuguese</option>
-                </select>
+                <label for="inputTargetLang">Translate To:</label>
+                <div class="search-select" id="containerTargetLang">
+                    <input type="text" id="inputTargetLang" class="search-select-input" value="None (Original Language)" placeholder="Search translation..." readonly>
+                    <input type="hidden" id="selectTargetLang" value="none">
+                    <div class="search-select-dropdown" id="dropdownTargetLang">
+                        <input type="text" class="search-select-filter" placeholder="Type target language...">
+                        <div class="search-select-options"></div>
+                    </div>
+                </div>
             </div>
         </div>
 

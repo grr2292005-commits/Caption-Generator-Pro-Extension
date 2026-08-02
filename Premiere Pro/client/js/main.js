@@ -63,6 +63,230 @@ var CaptionStyles = {
     }
 };
 
+// Comprehensive Whisper-supported Language Lists
+var WHISPER_LANGUAGES_SOURCE = [
+    { code: "auto", name: "Auto (Detect Automatically)" },
+    { code: "en", name: "English" },
+    { code: "es", name: "Spanish" },
+    { code: "hi", name: "Hindi" },
+    { code: "ta", name: "Tamil" },
+    { code: "te", name: "Telugu" },
+    { code: "fr", name: "French" },
+    { code: "de", name: "German" },
+    { code: "pt", name: "Portuguese" },
+    { code: "ar", name: "Arabic" },
+    { code: "ja", name: "Japanese" },
+    { code: "ko", name: "Korean" },
+    { code: "zh", name: "Chinese" },
+    { code: "ru", name: "Russian" },
+    { code: "it", name: "Italian" },
+    { code: "nl", name: "Dutch" },
+    { code: "tr", name: "Turkish" },
+    { code: "pl", name: "Polish" },
+    { code: "uk", name: "Ukrainian" },
+    { code: "sv", name: "Swedish" },
+    { code: "vi", name: "Vietnamese" },
+    { code: "id", name: "Indonesian" },
+    { code: "th", name: "Thai" },
+    { code: "bn", name: "Bengali" },
+    { code: "mr", name: "Marathi" },
+    { code: "gu", name: "Gujarati" },
+    { code: "kn", name: "Kannada" },
+    { code: "ml", name: "Malayalam" },
+    { code: "pa", name: "Punjabi" },
+    { code: "fa", name: "Persian" },
+    { code: "he", name: "Hebrew" },
+    { code: "el", name: "Greek" },
+    { code: "cs", name: "Czech" },
+    { code: "ro", name: "Romanian" },
+    { code: "hu", name: "Hungarian" },
+    { code: "da", name: "Danish" },
+    { code: "fi", name: "Finnish" },
+    { code: "no", name: "Norwegian" },
+    { code: "sk", name: "Slovak" },
+    { code: "bg", name: "Bulgarian" },
+    { code: "hr", name: "Croatian" },
+    { code: "sr", name: "Serbian" },
+    { code: "ms", name: "Malay" },
+    { code: "ur", name: "Urdu" },
+    { code: "sw", name: "Swahili" },
+    { code: "af", name: "Afrikaans" },
+    { code: "sq", name: "Albanian" },
+    { code: "am", name: "Amharic" },
+    { code: "hy", name: "Armenian" },
+    { code: "az", name: "Azerbaijani" },
+    { code: "eu", name: "Basque" },
+    { code: "be", name: "Belarusian" },
+    { code: "bs", name: "Bosnian" },
+    { code: "ca", name: "Catalan" },
+    { code: "et", name: "Estonian" },
+    { code: "gl", name: "Galician" },
+    { code: "ka", name: "Georgian" },
+    { code: "is", name: "Icelandic" },
+    { code: "kk", name: "Kazakh" },
+    { code: "km", name: "Khmer" },
+    { code: "lo", name: "Lao" },
+    { code: "lat", name: "Latin" },
+    { code: "lv", name: "Latvian" },
+    { code: "lt", name: "Lithuanian" },
+    { code: "mk", name: "Macedonian" },
+    { code: "mg", name: "Malagasy" },
+    { code: "mt", name: "Maltese" },
+    { code: "mi", name: "Maori" },
+    { code: "mn", name: "Mongolian" },
+    { code: "ne", name: "Nepali" },
+    { code: "ps", name: "Pashto" },
+    { code: "si", name: "Sinhala" },
+    { code: "sl", name: "Slovenian" },
+    { code: "so", name: "Somali" },
+    { code: "tl", name: "Tagalog" },
+    { code: "tg", name: "Tajik" },
+    { code: "uz", name: "Uzbek" },
+    { code: "cy", name: "Welsh" },
+    { code: "yi", name: "Yiddish" }
+];
+
+var WHISPER_LANGUAGES_TARGET = [
+    { code: "none", name: "None (Original Language)" },
+    { code: "en", name: "English" },
+    { code: "es", name: "Spanish" },
+    { code: "hi", name: "Hindi" },
+    { code: "ta", name: "Tamil" },
+    { code: "te", name: "Telugu" },
+    { code: "fr", name: "French" },
+    { code: "de", name: "German" },
+    { code: "pt", name: "Portuguese" },
+    { code: "ar", name: "Arabic" },
+    { code: "ja", name: "Japanese" },
+    { code: "ko", name: "Korean" },
+    { code: "zh", name: "Chinese" },
+    { code: "ru", name: "Russian" },
+    { code: "it", name: "Italian" },
+    { code: "nl", name: "Dutch" },
+    { code: "tr", name: "Turkish" },
+    { code: "pl", name: "Polish" },
+    { code: "uk", name: "Ukrainian" },
+    { code: "sv", name: "Swedish" },
+    { code: "vi", name: "Vietnamese" },
+    { code: "id", name: "Indonesian" },
+    { code: "th", name: "Thai" },
+    { code: "bn", name: "Bengali" },
+    { code: "mr", name: "Marathi" },
+    { code: "gu", name: "Gujarati" },
+    { code: "kn", name: "Kannada" },
+    { code: "ml", name: "Malayalam" },
+    { code: "pa", name: "Punjabi" },
+    { code: "fa", name: "Persian" },
+    { code: "he", name: "Hebrew" },
+    { code: "el", name: "Greek" },
+    { code: "cs", name: "Czech" },
+    { code: "ro", name: "Romanian" },
+    { code: "hu", name: "Hungarian" },
+    { code: "da", name: "Danish" },
+    { code: "fi", name: "Finnish" },
+    { code: "no", name: "Norwegian" },
+    { code: "sk", name: "Slovak" },
+    { code: "bg", name: "Bulgarian" },
+    { code: "hr", name: "Croatian" },
+    { code: "sr", name: "Serbian" },
+    { code: "ms", name: "Malay" },
+    { code: "ur", name: "Urdu" },
+    { code: "sw", name: "Swahili" }
+];
+
+var SearchableSelect = {
+    init: function(containerId, optionsList, onChangeCallback) {
+        var container = document.getElementById(containerId);
+        if (!container) return null;
+
+        var inputDisplay = container.querySelector(".search-select-input");
+        var hiddenVal = container.querySelector("input[type='hidden']");
+        var dropdown = container.querySelector(".search-select-dropdown");
+        var filterInput = container.querySelector(".search-select-filter");
+        var optionsContainer = container.querySelector(".search-select-options");
+
+        function renderOptions(filterText) {
+            optionsContainer.innerHTML = "";
+            var query = (filterText || "").toLowerCase().trim();
+            var matches = 0;
+            var currentVal = hiddenVal.value;
+
+            optionsList.forEach(function(opt) {
+                if (!query || opt.name.toLowerCase().indexOf(query) !== -1 || opt.code.toLowerCase().indexOf(query) !== -1) {
+                    matches++;
+                    var item = document.createElement("div");
+                    item.className = "search-select-item" + (opt.code === currentVal ? " selected" : "");
+                    item.innerText = opt.name;
+                    item.addEventListener("click", function(e) {
+                        e.stopPropagation();
+                        setValue(opt.code, opt.name);
+                        closeDropdown();
+                        if (onChangeCallback) onChangeCallback(opt.code);
+                    });
+                    optionsContainer.appendChild(item);
+                }
+            });
+
+            if (matches === 0) {
+                var noMatch = document.createElement("div");
+                noMatch.className = "search-select-empty";
+                noMatch.innerText = "No language found";
+                optionsContainer.appendChild(noMatch);
+            }
+        }
+
+        function setValue(code, name) {
+            hiddenVal.value = code;
+            if (!name) {
+                var found = optionsList.find(function(o) { return o.code === code; });
+                inputDisplay.value = found ? found.name : code;
+            } else {
+                inputDisplay.value = name;
+            }
+        }
+
+        function openDropdown() {
+            document.querySelectorAll(".search-select-dropdown").forEach(function(d) {
+                d.style.display = "none";
+            });
+            dropdown.style.display = "block";
+            filterInput.value = "";
+            renderOptions("");
+            setTimeout(function() { filterInput.focus(); }, 50);
+        }
+
+        function closeDropdown() {
+            dropdown.style.display = "none";
+        }
+
+        inputDisplay.addEventListener("click", function(e) {
+            e.stopPropagation();
+            if (dropdown.style.display === "block") {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
+        });
+
+        filterInput.addEventListener("input", function() {
+            renderOptions(filterInput.value);
+        });
+
+        filterInput.addEventListener("click", function(e) {
+            e.stopPropagation();
+        });
+
+        document.addEventListener("click", function() {
+            closeDropdown();
+        });
+
+        return {
+            getValue: function() { return hiddenVal.value; },
+            setValue: setValue
+        };
+    }
+};
+
 // User Preferences Persistence (localStorage)
 var UserPreferences = {
     STORAGE_KEY: "cgp_user_prefs",
@@ -140,10 +364,18 @@ var UserPreferences = {
         radios.forEach(function(r) { r.checked = (r.value === (prefs.lineMode || "double")); });
         var chkFill = document.getElementById("chkRemoveFillers");
         if (chkFill) chkFill.checked = prefs.removeFillers !== false;
-        var selSrc = document.getElementById("selectSourceLang");
-        if (selSrc) selSrc.value = prefs.sourceLang || "auto";
-        var selTgt = document.getElementById("selectTargetLang");
-        if (selTgt) selTgt.value = prefs.targetLang || "none";
+        if (window.SourceLangSelect) {
+            window.SourceLangSelect.setValue(prefs.sourceLang || "auto");
+        } else {
+            var selSrc = document.getElementById("selectSourceLang");
+            if (selSrc) selSrc.value = prefs.sourceLang || "auto";
+        }
+        if (window.TargetLangSelect) {
+            window.TargetLangSelect.setValue(prefs.targetLang || "none");
+        } else {
+            var selTgt = document.getElementById("selectTargetLang");
+            if (selTgt) selTgt.value = prefs.targetLang || "none";
+        }
         var chkVer = document.getElementById("chkVersioning");
         if (chkVer) chkVer.checked = prefs.versioning !== false;
         var selHw = document.getElementById("selectHardware");
@@ -160,6 +392,15 @@ var UserPreferences = {
 
 // Main Application Panel Controller
 document.addEventListener("DOMContentLoaded", function() {
+    // 0. Initialize Searchable Comboboxes for Languages
+    window.SourceLangSelect = SearchableSelect.init("containerSourceLang", WHISPER_LANGUAGES_SOURCE, function() {
+        UserPreferences.autoSave();
+    });
+
+    window.TargetLangSelect = SearchableSelect.init("containerTargetLang", WHISPER_LANGUAGES_TARGET, function() {
+        UserPreferences.autoSave();
+    });
+
     // 1. Tab Navigation Logic
     var tabs = document.querySelectorAll(".tab-btn");
     tabs.forEach(function(tab) {
