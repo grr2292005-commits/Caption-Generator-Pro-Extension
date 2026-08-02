@@ -311,10 +311,17 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
             return "ERR|No caption or word items available to generate text layers.";
         }
 
-        var primaryRgb = hexToRgb(style.primaryColor || "#FFFFFF");
+        var primaryRgb = hexToRgb(style.textColor || style.primaryColor || "#FFFFFF");
         var highlightRgb = hexToRgb(style.highlightColor || "#FFD700");
-        var isCenter = (style.position === "center");
-        var baseFontSize = (style.fontSize ? (compHeight * (style.fontSize / 550.0)) : compHeight * 0.05);
+        var strokeRgb = hexToRgb(style.strokeColor || "#000000");
+
+        var posVert = style.position || "bottom";
+        var alignHoriz = style.align || "center";
+
+        var posY = (posVert === "top") ? (compHeight * 0.15) : ((posVert === "center") ? (compHeight * 0.5) : (compHeight * 0.85));
+        var posX = (alignHoriz === "left") ? (compWidth * 0.2) : ((alignHoriz === "right") ? (compWidth * 0.8) : (compWidth * 0.5));
+
+        var baseFontSize = style.fontSize ? (compHeight * (style.fontSize / 550.0)) : (compHeight * 0.05);
 
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
@@ -331,13 +338,26 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
             var textDocument = textProp.value;
 
             textDocument.fontSize = baseFontSize;
-            textDocument.fillColor = (style.mode === "karaoke" ? highlightRgb : primaryRgb);
+            textDocument.fillColor = (style.animation === "karaoke" ? highlightRgb : primaryRgb);
             textDocument.applyFill = true;
-            textDocument.strokeColor = [0, 0, 0];
-            textDocument.strokeWidth = compHeight * 0.004;
-            textDocument.applyStroke = true;
+
+            if (style.enableStroke !== false) {
+                textDocument.strokeColor = strokeRgb;
+                textDocument.strokeWidth = compHeight * 0.004;
+                textDocument.applyStroke = true;
+            } else {
+                textDocument.applyStroke = false;
+            }
+
             textDocument.font = "Arial-BoldMT";
-            textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+
+            if (alignHoriz === "left") {
+                textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
+            } else if (alignHoriz === "right") {
+                textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
+            } else {
+                textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+            }
 
             textProp.setValue(textDocument);
 
@@ -346,22 +366,21 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
             var anchorY = bounds.top + bounds.height / 2;
 
             textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
-            var posY = isCenter ? (compHeight / 2) : (compHeight * 0.85);
-            textLayer.property("Position").setValue([compWidth / 2, posY]);
+            textLayer.property("Position").setValue([posX, posY]);
 
             // Apply Animations
             var anim = style.animation || "none";
-            if (style.id === "hormozi" || anim === "pop") {
+            if (anim === "pop" || style.id === "hormozi") {
                 var scaleProp = textLayer.property("Scale");
                 scaleProp.setValueAtTime(item.start, [0, 0]);
                 scaleProp.setValueAtTime(item.start + 0.08, [125, 125]);
                 scaleProp.setValueAtTime(item.start + 0.15, [100, 100]);
-            } else if (style.id === "karaoke" || anim === "highlight") {
+            } else if (anim === "karaoke" || anim === "highlight" || style.id === "karaoke") {
                 var scaleK = textLayer.property("Scale");
                 scaleK.setValueAtTime(item.start, [100, 100]);
                 scaleK.setValueAtTime(item.start + 0.06, [118, 118]);
                 scaleK.setValueAtTime(item.start + 0.14, [100, 100]);
-            } else if (style.id === "clean_pro" || anim === "fade") {
+            } else if (anim === "fade" || style.id === "clean_pro") {
                 var opacClean = textLayer.property("Opacity");
                 opacClean.setValueAtTime(item.start, 0);
                 opacClean.setValueAtTime(item.start + 0.15, 100);
@@ -382,7 +401,8 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
 
         app.endUndoGroup();
 
-        return "OK|Created " + items.length + " styled text layers in active comp (" + (style.name || style.id) + ")!|Count:" + items.length;
+        var styleInfo = "Anim: " + (style.animation || "none") + ", Words: " + (style.wordsPerLayer || "full");
+        return "OK|Created " + items.length + " styled text layers in active comp (" + styleInfo + ")!|Count:" + items.length;
 
     } catch (e) {
         return "ERR|" + e.toString();

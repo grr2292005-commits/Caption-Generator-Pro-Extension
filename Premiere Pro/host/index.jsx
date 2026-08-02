@@ -337,12 +337,16 @@ $._PPP_.importStyledSubtitles = function(jsonPath) {
         }
 
         var createdCount = 0;
-        var fontSize = style.fontSize || 28;
-        var fontColor = style.primaryColor || "#FFFFFF";
+        var fontSize = style.fontSize || 26;
+        var fontColor = style.textColor || style.primaryColor || "#FFFFFF";
+        if (style.animation === "karaoke") {
+            fontColor = style.highlightColor || "#FFD700";
+        }
+        var styleName = style.animation ? ("Animation: " + style.animation + ", Words: " + (style.wordsPerLayer || "full")) : "Stylized";
 
         for (var i = 0; i < items.length; i++) {
             var item = items[i];
-            var titleName = "Cap_" + (style.id || "styled") + "_" + (i + 1);
+            var titleName = "CGP_Cap_" + (i + 1);
             var titleItem = null;
 
             if (typeof app.project.createNewTitle === "function") {
@@ -360,17 +364,21 @@ $._PPP_.importStyledSubtitles = function(jsonPath) {
         }
 
         if (createdCount > 0) {
-            return "OK|Created " + createdCount + " styled caption elements on active sequence (" + (style.name || style.id) + ")!";
+            return "OK|Created " + createdCount + " styled caption elements on active sequence (" + styleName + ")!";
         }
 
-        // Fallback: If native title creation API is restricted in current Premiere version, fallback to SRT import with style notification
-        var srtPath = jsonPath.replace("_styled.json", ".srt");
+        // Fallback: If title creation API is restricted in current Premiere version, fallback to SRT import
+        var srtPath = jsonPath.replace("_styled.json", ".srt").replace("cgp_stylize_payload.json", "captions.srt");
         var srtFile = new File(srtPath);
         if (srtFile.exists) {
-            return $._PPP_.importSubtitles(srtPath);
+            var srtRes = $._PPP_.importSubtitles(srtPath);
+            if (srtRes && srtRes.indexOf("OK|") === 0) {
+                return "OK|Imported subtitle track into active sequence timeline (" + styleName + ")!";
+            }
+            return srtRes;
         }
 
-        return "ERR|Could not create styled graphic layers on the sequence video track.";
+        return "ERR|Could not create graphic title clips on sequence video track. Make sure a sequence is active.";
 
     } catch (e) {
         return "ERR|" + e.toString();
