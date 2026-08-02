@@ -35,7 +35,7 @@ class CaptionBackend:
                 return ver_dir
             version += 1
 
-    def transcribe_audio(self, audio_path, model_name="base", device="auto", translate=False, remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):
+    def transcribe_audio(self, audio_path, model_name="base", device="auto", language="auto", target_language="none", remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):
         # Safe device selection with CUDA check
         try:
             import torch
@@ -53,14 +53,15 @@ class CaptionBackend:
         os.makedirs(cache_dir, exist_ok=True)
 
         result_segments = []
+        task = "translate" if (target_language == "en") else "transcribe"
+        whisper_lang = None if (language == "auto" or not language) else language
 
         # Try faster-whisper first for high speed CTranslate2 performance, fallback to openai-whisper
         try:
             from faster_whisper import WhisperModel
             compute_type = "float16" if device == "cuda" else "int8"
             model = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=cache_dir)
-            task = "translate" if translate else "transcribe"
-            segments, info = model.transcribe(audio_path, word_timestamps=True, task=task)
+            segments, info = model.transcribe(audio_path, word_timestamps=True, task=task, language=whisper_lang)
             
             for seg in segments:
                 words = []
@@ -73,12 +74,27 @@ class CaptionBackend:
             try:
                 import whisper
                 model = whisper.load_model(model_name, device=device, download_root=cache_dir)
-                task = "translate" if translate else "transcribe"
-                res = model.transcribe(audio_path, word_timestamps=True, task=task)
+                kwargs = {"word_timestamps": True, "task": task}
+                if whisper_lang:
+                    kwargs["language"] = whisper_lang
+                res = model.transcribe(audio_path, **kwargs)
                 result_segments = res.get("segments", [])
             except Exception as e2:
                 print(f"Standard whisper failed: {e2}")
                 raise e2
+
+        # Non-English Target Translation Fallback
+        if target_language not in ["none", "en"]:
+            try:
+                from deep_translator import GoogleTranslator
+                translator = GoogleTranslator(source='auto', target=target_language)
+                for seg in result_segments:
+                    if seg.get("text"):
+                        translated = translator.translate(seg["text"])
+                        if translated:
+                            seg["text"] = translated
+            except Exception as tr_err:
+                print(f"Target language translation to '{target_language}' failed: {tr_err}. Returning original captions.")
 
         # Process words into structured caption cues AND word-level timestamps
         captions = []
@@ -91,7 +107,6 @@ class CaptionBackend:
                 if words:
                     all_words.extend(words)
                 else:
-                    # Fallback segment level if word timestamps missing
                     seg_text = seg.get("text", "").strip()
                     if seg_text:
                         all_words.append({
@@ -240,10 +255,12 @@ def main():
     parser.add_argument("--audio", required=True, help="Path to input audio file")
     parser.add_argument("--model", default="base", help="Whisper model (tiny, base, small, medium, large-v3)")
     parser.add_argument("--device", default="auto", help="Hardware device (cuda, cpu, auto)")
+    parser.add_argument("--language", default="auto", help="Source audio language (auto, en, es, hi, etc.)")
+    parser.add_argument("--target_language", default="none", help="Target translation language (none, en, es, hi, etc.)")
     parser.add_argument("--project_path", default="", help="Active Premiere/AE project directory")
     parser.add_argument("--project_name", default="Untitled", help="Project name for export folder")
     parser.add_argument("--remove_fillers", action="store_true", help="Remove filler words like um, uh")
-    parser.add_argument("--translate", action="store_true", help="Translate non-English audio to English")
+    parser.add_argument("--translate", action="store_true", help="Backward compatible flag for translate to English")
     parser.add_argument("--enable_versioning", action="store_true", help="Organize into project version folders")
     parser.add_argument("--max_chars", type=int, default=42, help="Max characters per line")
     parser.add_argument("--max_dur", type=float, default=3.0, help="Max cue duration in seconds")
@@ -252,6 +269,11 @@ def main():
 
     args = parser.parse_args()
 
+    # Backward compatibility for --translate flag
+    target_lang = args.target_language
+    if args.translate and target_lang == "none":
+        target_lang = "en"
+
     backend = CaptionBackend()
 
     try:
@@ -259,7 +281,8 @@ def main():
             audio_path=args.audio,
             model_name=args.model,
             device=args.device,
-            translate=args.translate,
+            language=args.language,
+            target_language=target_lang,
             remove_fillers=args.remove_fillers,
             max_chars=args.max_chars,
             max_dur=args.max_dur,

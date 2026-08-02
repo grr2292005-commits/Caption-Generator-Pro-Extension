@@ -74,7 +74,8 @@ var UserPreferences = {
         gapFrames: 0,
         lineMode: "double",
         removeFillers: true,
-        translate: false,
+        sourceLang: "auto",
+        targetLang: "none",
         versioning: true,
         hardware: "cuda",
         captionStyle: "standard"
@@ -110,8 +111,10 @@ var UserPreferences = {
         radios.forEach(function(r) { if (r.checked) prefs.lineMode = r.value; });
         var chkFill = document.getElementById("chkRemoveFillers");
         if (chkFill) prefs.removeFillers = chkFill.checked;
-        var chkTrans = document.getElementById("chkTranslate");
-        if (chkTrans) prefs.translate = chkTrans.checked;
+        var selSrc = document.getElementById("selectSourceLang");
+        if (selSrc) prefs.sourceLang = selSrc.value;
+        var selTgt = document.getElementById("selectTargetLang");
+        if (selTgt) prefs.targetLang = selTgt.value;
         var chkVer = document.getElementById("chkVersioning");
         if (chkVer) prefs.versioning = chkVer.checked;
         var selHw = document.getElementById("selectHardware");
@@ -137,8 +140,10 @@ var UserPreferences = {
         radios.forEach(function(r) { r.checked = (r.value === (prefs.lineMode || "double")); });
         var chkFill = document.getElementById("chkRemoveFillers");
         if (chkFill) chkFill.checked = prefs.removeFillers !== false;
-        var chkTrans = document.getElementById("chkTranslate");
-        if (chkTrans) chkTrans.checked = prefs.translate === true;
+        var selSrc = document.getElementById("selectSourceLang");
+        if (selSrc) selSrc.value = prefs.sourceLang || "auto";
+        var selTgt = document.getElementById("selectTargetLang");
+        if (selTgt) selTgt.value = prefs.targetLang || "none";
         var chkVer = document.getElementById("chkVersioning");
         if (chkVer) chkVer.checked = prefs.versioning !== false;
         var selHw = document.getElementById("selectHardware");
@@ -242,10 +247,16 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    var selSrc = document.getElementById("selectSourceLang");
+    if (selSrc) selSrc.addEventListener("change", function() { UserPreferences.autoSave(); });
+
+    var selTgt = document.getElementById("selectTargetLang");
+    if (selTgt) selTgt.addEventListener("change", function() { UserPreferences.autoSave(); });
+
     var radios = document.querySelectorAll('input[name="lineMode"]');
     radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });
 
-    var chkIds = ["chkRemoveFillers", "chkTranslate", "chkVersioning"];
+    var chkIds = ["chkRemoveFillers", "chkVersioning"];
     chkIds.forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener("change", function() { UserPreferences.autoSave(); });
@@ -513,7 +524,10 @@ function runPythonBackend(audioPath, projectDetails, callback) {
 
     var model = document.getElementById("selectModel").value;
     var removeFillers = document.getElementById("chkRemoveFillers").checked;
-    var translate = document.getElementById("chkTranslate").checked;
+    var sourceLangEl = document.getElementById("selectSourceLang");
+    var sourceLang = sourceLangEl ? sourceLangEl.value : "auto";
+    var targetLangEl = document.getElementById("selectTargetLang");
+    var targetLang = targetLangEl ? targetLangEl.value : "none";
     var versioning = document.getElementById("chkVersioning").checked;
     var maxChars = document.getElementById("sliderMaxChars").value;
     var maxDur = (parseFloat(document.getElementById("sliderMaxDur").value) / 10.0).toFixed(1);
@@ -527,6 +541,8 @@ function runPythonBackend(audioPath, projectDetails, callback) {
         "--audio", audioPath,
         "--model", model,
         "--device", hardware,
+        "--language", sourceLang,
+        "--target_language", targetLang,
         "--project_path", projectDetails.path || "",
         "--project_name", projectDetails.name || "UntitledProject",
         "--max_chars", maxChars.toString(),
@@ -536,7 +552,6 @@ function runPythonBackend(audioPath, projectDetails, callback) {
     ];
 
     if (removeFillers) args.push("--remove_fillers");
-    if (translate) args.push("--translate");
     if (versioning) args.push("--enable_versioning");
 
     var proc = cp.spawn(pythonExe, args, { cwd: baseDir });
