@@ -43,6 +43,20 @@
         </div>
 
         <div class="card">
+            <div class="card-title">Caption Style</div>
+            <div class="form-group">
+                <label for="selectCaptionStyle">Style Preset:</label>
+                <select id="selectCaptionStyle">
+                    <option value="standard">Standard (Default Subtitles)</option>
+                    <option value="clean_pro">Clean Professional</option>
+                    <option value="hormozi">Hormozi Pop (Bold / Center)</option>
+                    <option value="karaoke">Karaoke Highlight (Word Glow)</option>
+                    <option value="podcast">Podcast Soft (Minimalist)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-title">Transcription Settings</div>
             
             <!-- Max Characters -->
@@ -128,7 +142,10 @@
     <main id="tab-editor" class="tab-content">
         <div class="editor-container">
             <div class="editor-toolbar">
-                <span style="font-weight: 700;" id="cueCounter">0 Subtitles</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 700;" id="cueCounter">0 Subtitles</span>
+                    <span id="styleBadge" class="style-badge">Style: Standard</span>
+                </div>
                 <div style="display: flex; gap: 6px;">
                     <button class="btn-secondary" id="btnAddCue">+ Add Cue</button>
                 </div>

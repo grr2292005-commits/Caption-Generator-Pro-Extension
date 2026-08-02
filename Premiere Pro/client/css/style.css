@@ -466,3 +466,16 @@ input[type="range"] {
     gap: 8px;
     justify-content: center;
 }
+
+.style-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    background: rgba(20, 115, 230, 0.15);
+    border: 1px solid var(--accent-blue);
+    border-radius: 10px;
+    color: #4da3ff;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}

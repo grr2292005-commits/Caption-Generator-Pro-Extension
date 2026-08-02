@@ -1,3 +1,68 @@
+// Caption Styles Data Model & Presets
+var CaptionStyles = {
+    presets: {
+        standard: {
+            id: "standard",
+            name: "Standard (Default)",
+            description: "Clean classic subtitle layout",
+            mode: "standard",
+            fontSize: 24,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#FFD700",
+            position: "bottom",
+            animation: "none"
+        },
+        clean_pro: {
+            id: "clean_pro",
+            name: "Clean Professional",
+            description: "Modern minimalist lower-third captions",
+            mode: "standard",
+            fontSize: 26,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#00E5FF",
+            position: "bottom",
+            animation: "none"
+        },
+        hormozi: {
+            id: "hormozi",
+            name: "Hormozi Pop",
+            description: "Bold energetic centered text with pop animations",
+            mode: "kinetic",
+            fontSize: 32,
+            primaryColor: "#FFFF00",
+            highlightColor: "#FF0055",
+            position: "center",
+            animation: "pop"
+        },
+        karaoke: {
+            id: "karaoke",
+            name: "Karaoke Highlight",
+            description: "Word-by-word active highlight glow",
+            mode: "karaoke",
+            fontSize: 28,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#00FF66",
+            position: "center",
+            animation: "highlight"
+        },
+        podcast: {
+            id: "podcast",
+            name: "Podcast Soft",
+            description: "Soft elegant subtitle layout for longform audio",
+            mode: "standard",
+            fontSize: 22,
+            primaryColor: "#E0E0E0",
+            highlightColor: "#BB86FC",
+            position: "bottom",
+            animation: "none"
+        }
+    },
+
+    getStyle: function(id) {
+        return this.presets[id] || this.presets.standard;
+    }
+};
+
 // User Preferences Persistence (localStorage)
 var UserPreferences = {
     STORAGE_KEY: "cgp_user_prefs",
@@ -11,7 +76,8 @@ var UserPreferences = {
         removeFillers: true,
         translate: false,
         versioning: true,
-        hardware: "cuda"
+        hardware: "cuda",
+        captionStyle: "standard"
     },
 
     load: function() {
@@ -50,6 +116,8 @@ var UserPreferences = {
         if (chkVer) prefs.versioning = chkVer.checked;
         var selHw = document.getElementById("selectHardware");
         if (selHw) prefs.hardware = selHw.value;
+        var selStyle = document.getElementById("selectCaptionStyle");
+        if (selStyle) prefs.captionStyle = selStyle.value;
         return prefs;
     },
 
@@ -75,6 +143,8 @@ var UserPreferences = {
         if (chkVer) chkVer.checked = prefs.versioning !== false;
         var selHw = document.getElementById("selectHardware");
         if (selHw) selHw.value = prefs.hardware || "cuda";
+        var selStyle = document.getElementById("selectCaptionStyle");
+        if (selStyle) selStyle.value = prefs.captionStyle || "standard";
     },
 
     autoSave: function() {
@@ -158,9 +228,19 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Auto-save on model, radio, and checkbox changes
+    // Auto-save on model, style, radio, and checkbox changes
     var selectModel = document.getElementById("selectModel");
     if (selectModel) selectModel.addEventListener("change", function() { UserPreferences.autoSave(); });
+
+    var selectStyle = document.getElementById("selectCaptionStyle");
+    if (selectStyle) {
+        selectStyle.addEventListener("change", function() {
+            UserPreferences.autoSave();
+            if (typeof SubtitleEditor !== "undefined" && SubtitleEditor.render) {
+                SubtitleEditor.render();
+            }
+        });
+    }
 
     var radios = document.querySelectorAll('input[name="lineMode"]');
     radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });

@@ -1,10 +1,74 @@
+// Caption Styles Data Model & Presets
+var CaptionStyles = {
+    presets: {
+        standard: {
+            id: "standard",
+            name: "Standard (Default)",
+            description: "Clean classic subtitle layout",
+            mode: "standard",
+            fontSize: 24,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#FFD700",
+            position: "bottom",
+            animation: "none"
+        },
+        clean_pro: {
+            id: "clean_pro",
+            name: "Clean Professional",
+            description: "Modern minimalist lower-third captions",
+            mode: "standard",
+            fontSize: 26,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#00E5FF",
+            position: "bottom",
+            animation: "none"
+        },
+        hormozi: {
+            id: "hormozi",
+            name: "Hormozi Pop",
+            description: "Bold energetic centered text with pop animations",
+            mode: "kinetic",
+            fontSize: 32,
+            primaryColor: "#FFFF00",
+            highlightColor: "#FF0055",
+            position: "center",
+            animation: "pop"
+        },
+        karaoke: {
+            id: "karaoke",
+            name: "Karaoke Highlight",
+            description: "Word-by-word active highlight glow",
+            mode: "karaoke",
+            fontSize: 28,
+            primaryColor: "#FFFFFF",
+            highlightColor: "#00FF66",
+            position: "center",
+            animation: "highlight"
+        },
+        podcast: {
+            id: "podcast",
+            name: "Podcast Soft",
+            description: "Soft elegant subtitle layout for longform audio",
+            mode: "standard",
+            fontSize: 22,
+            primaryColor: "#E0E0E0",
+            highlightColor: "#BB86FC",
+            position: "bottom",
+            animation: "none"
+        }
+    },
+
+    getStyle: function(id) {
+        return this.presets[id] || this.presets.standard;
+    }
+};
+
 // User Preferences Persistence (localStorage)
 var UserPreferences = {
-    STORAGE_KEY: "cgp_ae_user_prefs",
+    STORAGE_KEY: "cgp_user_prefs",
 
     defaults: {
         model: "base",
-        importMethod: "direct",
         maxChars: 37,
         maxDur: 30,
         gapFrames: 0,
@@ -12,7 +76,8 @@ var UserPreferences = {
         removeFillers: true,
         translate: false,
         versioning: true,
-        hardware: "cuda"
+        hardware: "cuda",
+        captionStyle: "standard"
     },
 
     load: function() {
@@ -35,8 +100,6 @@ var UserPreferences = {
         var prefs = {};
         var sel = document.getElementById("selectModel");
         if (sel) prefs.model = sel.value;
-        var selImp = document.getElementById("selectImportMethod");
-        if (selImp) prefs.importMethod = selImp.value;
         var sChars = document.getElementById("sliderMaxChars");
         if (sChars) prefs.maxChars = parseInt(sChars.value, 10);
         var sDur = document.getElementById("sliderMaxDur");
@@ -53,14 +116,14 @@ var UserPreferences = {
         if (chkVer) prefs.versioning = chkVer.checked;
         var selHw = document.getElementById("selectHardware");
         if (selHw) prefs.hardware = selHw.value;
+        var selStyle = document.getElementById("selectCaptionStyle");
+        if (selStyle) prefs.captionStyle = selStyle.value;
         return prefs;
     },
 
     restore: function(prefs) {
         var sel = document.getElementById("selectModel");
         if (sel) sel.value = prefs.model || this.defaults.model;
-        var selImp = document.getElementById("selectImportMethod");
-        if (selImp) selImp.value = prefs.importMethod || this.defaults.importMethod;
         var sChars = document.getElementById("sliderMaxChars");
         var lblChars = document.getElementById("lblMaxCharsVal");
         if (sChars) { sChars.value = prefs.maxChars; if (lblChars) lblChars.innerText = prefs.maxChars; }
@@ -80,9 +143,12 @@ var UserPreferences = {
         if (chkVer) chkVer.checked = prefs.versioning !== false;
         var selHw = document.getElementById("selectHardware");
         if (selHw) selHw.value = prefs.hardware || "cuda";
+        var selStyle = document.getElementById("selectCaptionStyle");
+        if (selStyle) selStyle.value = prefs.captionStyle || "standard";
     },
 
     autoSave: function() {
+        var self = this;
         this.save(this.gather());
     }
 };
@@ -162,17 +228,27 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Auto-save on model, import method, radio, and checkbox changes
+    // Auto-save on model, style, radio, and checkbox changes
     var selectModel = document.getElementById("selectModel");
     if (selectModel) selectModel.addEventListener("change", function() { UserPreferences.autoSave(); });
 
-    var selectImport = document.getElementById("selectImportMethod");
-    if (selectImport) selectImport.addEventListener("change", function() { UserPreferences.autoSave(); });
+    var selectStyle = document.getElementById("selectCaptionStyle");
+    if (selectStyle) {
+        selectStyle.addEventListener("change", function() {
+            UserPreferences.autoSave();
+            if (typeof SubtitleEditor !== "undefined" && SubtitleEditor.render) {
+                SubtitleEditor.render();
+            }
+        });
+    }
+
+    var selectImp = document.getElementById("selectImportMethod");
+    if (selectImp) selectImp.addEventListener("change", function() { UserPreferences.autoSave(); });
 
     var radios = document.querySelectorAll('input[name="lineMode"]');
     radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });
 
-    var chkIds = ["chkRemoveFillers", "chkTranslate", "chkVersioning"];
+    var chkIds = ["chkRemoveFillers", "chkTranslate", "chkVersioning", "chkRemoveOldSubtitles"];
     chkIds.forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.addEventListener("change", function() { UserPreferences.autoSave(); });

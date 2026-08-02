@@ -22,7 +22,14 @@ var SubtitleEditor = {
     render: function() {
         var container = document.getElementById("cueList");
         var counter = document.getElementById("cueCounter");
+        var badge = document.getElementById("styleBadge");
         if (!container || !counter) return;
+
+        if (badge && typeof UserPreferences !== "undefined" && typeof CaptionStyles !== "undefined") {
+            var currentStyleId = UserPreferences.load().captionStyle || "standard";
+            var currentStyleObj = CaptionStyles.getStyle(currentStyleId);
+            badge.innerText = "Style: " + currentStyleObj.name;
+        }
 
         container.innerHTML = "";
         var total = this.captions.length;
