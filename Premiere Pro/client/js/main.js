@@ -1198,7 +1198,19 @@ function applyStylizedCaptionsFromTab() {
             var path = require("path");
             var tempFolder = getTempFolder();
             var jsonPath = path.join(tempFolder, "cgp_stylize_payload.json");
+            var srtPath = path.join(tempFolder, "cgp_stylize_payload.srt");
+
             fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 4), "utf-8");
+
+            // Generate SRT file from finalItems for sequence caption track creation
+            var srtContent = "";
+            for (var k = 0; k < finalItems.length; k++) {
+                var itm = finalItems[k];
+                var tStart = fmtTime(itm.start, "srt");
+                var tEnd = fmtTime(itm.end, "srt");
+                srtContent += (k + 1) + "\n" + tStart + " --> " + tEnd + "\n" + itm.text + "\n\n";
+            }
+            fs.writeFileSync(srtPath, srtContent, "utf-8");
 
             ExtendScriptBridge.importStyledSubtitles(jsonPath, function(res) {
                 if (btn) { btn.disabled = false; btn.innerText = originalText; }

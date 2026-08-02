@@ -303,15 +303,15 @@ var UserPreferences = {
         versioning: true,
         hardware: "cuda",
         wordsPerLayer: "full",
-        animation: "none",
+        aePreset: "pop_in",
+        aeTargeting: "cgp_all",
         position: "bottom",
         align: "center",
         fontSize: 24,
         textColor: "#FFFFFF",
         highlightColor: "#FFD700",
         enableStroke: true,
-        strokeColor: "#000000",
-        applyScope: "all"
+        strokeColor: "#000000"
     },
 
     load: function() {
@@ -353,11 +353,13 @@ var UserPreferences = {
         var selHw = document.getElementById("selectHardware");
         if (selHw) prefs.hardware = selHw.value;
 
-        // Stylize tab options
+        // AE Stylize tab options
         var sWpl = document.getElementById("selectWordsPerLayer");
         if (sWpl) prefs.wordsPerLayer = sWpl.value;
-        var sAnim = document.getElementById("selectAnimation");
-        if (sAnim) prefs.animation = sAnim.value;
+        var sPreset = document.getElementById("selectAEPreset");
+        if (sPreset) prefs.aePreset = sPreset.value;
+        var sTgt = document.getElementById("selectAETargeting");
+        if (sTgt) prefs.aeTargeting = sTgt.value;
         var sPos = document.getElementById("selectPosition");
         if (sPos) prefs.position = sPos.value;
         var sAlign = document.getElementById("selectAlign");
@@ -372,8 +374,6 @@ var UserPreferences = {
         if (chkStr) prefs.enableStroke = chkStr.checked;
         var cStr = document.getElementById("colorStroke");
         if (cStr) prefs.strokeColor = cStr.value;
-        var sScope = document.getElementById("selectApplyScope");
-        if (sScope) prefs.applyScope = sScope.value;
 
         return prefs;
     },
@@ -411,11 +411,13 @@ var UserPreferences = {
         var selHw = document.getElementById("selectHardware");
         if (selHw) selHw.value = prefs.hardware || "cuda";
 
-        // Stylize tab preferences restore
+        // AE Stylize tab preferences restore
         var sWpl = document.getElementById("selectWordsPerLayer");
         if (sWpl) sWpl.value = prefs.wordsPerLayer || "full";
-        var sAnim = document.getElementById("selectAnimation");
-        if (sAnim) sAnim.value = prefs.animation || "none";
+        var sPreset = document.getElementById("selectAEPreset");
+        if (sPreset) sPreset.value = prefs.aePreset || "pop_in";
+        var sTgt = document.getElementById("selectAETargeting");
+        if (sTgt) sTgt.value = prefs.aeTargeting || "cgp_all";
         var sPos = document.getElementById("selectPosition");
         if (sPos) sPos.value = prefs.position || "bottom";
         var sAlign = document.getElementById("selectAlign");
@@ -431,8 +433,6 @@ var UserPreferences = {
         if (chkStr) chkStr.checked = prefs.enableStroke !== false;
         var cStr = document.getElementById("colorStroke");
         if (cStr) cStr.value = prefs.strokeColor || "#000000";
-        var sScope = document.getElementById("selectApplyScope");
-        if (sScope) sScope.value = prefs.applyScope || "all";
 
         updateStylizeSummary();
     },
@@ -450,15 +450,13 @@ function updateStylizeSummary() {
     var prefs = UserPreferences.gather();
     
     var wMap = { "full": "Full Cue", "1": "1 Word/Layer", "2": "2 Words/Layer", "3": "3 Words/Layer" };
-    var aMap = { "none": "None", "pop": "Pop In", "fade": "Fade", "karaoke": "Karaoke" };
-    var pMap = { "bottom": "Bottom", "center": "Center", "top": "Top" };
-    var alMap = { "center": "Center", "left": "Left", "right": "Right" };
+    var prMap = { "pop_in": "Pop In", "clean_fade": "Clean Fade", "karaoke_highlight": "Karaoke Glow", "lower_third_soft": "Lower Third", "word_kinetic": "Word Kinetic" };
+    var tgtMap = { "cgp_all": "All CGP Layers", "selected": "Selected Layers", "comp_all": "All Text Layers" };
     
-    var txt = "Words: " + (wMap[prefs.wordsPerLayer] || "Full Cue") +
-              " | Anim: " + (aMap[prefs.animation] || "None") +
-              " | Pos: " + (pMap[prefs.position] || "Bottom") + " (" + (alMap[prefs.align] || "Center") + ")" +
-              " | Size: " + (prefs.fontSize || 24) + "px" +
-              " | Stroke: " + (prefs.enableStroke ? "On" : "Off");
+    var txt = "Preset: " + (prMap[prefs.aePreset] || "Pop In") +
+              " | Target: " + (tgtMap[prefs.aeTargeting] || "All CGP Layers") +
+              " | Words: " + (wMap[prefs.wordsPerLayer] || "Full Cue") +
+              " | Size: " + (prefs.fontSize || 24) + "px";
     summaryEl.innerText = txt;
 }
 
@@ -591,6 +589,9 @@ document.addEventListener("DOMContentLoaded", function() {
     var btnTranscribe = document.getElementById("btnTranscribe");
     var btnApplyEdits = document.getElementById("btnApplyEdits");
     var btnApplyStylized = document.getElementById("btnApplyStylized");
+    var btnGenLayers = document.getElementById("btnGenerateCaptionLayers");
+    var btnPresetSel = document.getElementById("btnApplyPresetSelected");
+    var btnPresetAllCGP = document.getElementById("btnApplyPresetAllCGP");
     var btnExportSRT = document.getElementById("btnExportSRT");
     var btnModalCancel = document.getElementById("btnModalCancel");
     var btnModalClose = document.getElementById("btnModalClose");
@@ -598,6 +599,24 @@ document.addEventListener("DOMContentLoaded", function() {
     if (btnApplyStylized) {
         btnApplyStylized.addEventListener("click", function() {
             applyStylizedCaptionsFromTab();
+        });
+    }
+
+    if (btnGenLayers) {
+        btnGenLayers.addEventListener("click", function() {
+            applyStylizedCaptionsFromTab();
+        });
+    }
+
+    if (btnPresetSel) {
+        btnPresetSel.addEventListener("click", function() {
+            applyPresetToAELayers("selected");
+        });
+    }
+
+    if (btnPresetAllCGP) {
+        btnPresetAllCGP.addEventListener("click", function() {
+            applyPresetToAELayers("cgp_all");
         });
     }
 
@@ -1256,6 +1275,49 @@ function applyStylizedCaptionsFromTab() {
             } else {
                 showAlertModal("Success", "Stylized captions applied (Browser Preview Mode)!");
             }
+        }
+    });
+}
+
+function applyPresetToAELayers(overrideTargetingMode) {
+    ensureLicensedAction("import", function() {
+        var prefs = UserPreferences.gather();
+        var targetingMode = overrideTargetingMode || prefs.aeTargeting || "selected";
+        var preset = prefs.aePreset || "pop_in";
+
+        var styleConfig = {
+            fontSize: parseInt(prefs.fontSize, 10) || 24,
+            textColor: prefs.textColor || "#FFFFFF",
+            highlightColor: prefs.highlightColor || "#FFD700",
+            enableStroke: prefs.enableStroke === true,
+            strokeColor: prefs.strokeColor || "#000000",
+            position: prefs.position || "bottom",
+            align: prefs.align || "center"
+        };
+
+        var payload = {
+            preset: preset,
+            targetingMode: targetingMode,
+            style: styleConfig
+        };
+
+        if (typeof require !== "undefined") {
+            var fs = require("fs");
+            var path = require("path");
+            var tempFolder = getTempFolder();
+            var jsonPath = path.join(tempFolder, "cgp_preset_payload.json");
+            fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 4), "utf-8");
+
+            ExtendScriptBridge.applyPresetToLayers(jsonPath, function(res) {
+                if (!res || !res.success) {
+                    var err = (res && res.error) ? res.error : "Failed to apply preset to layers.";
+                    showAlertModal("Preset Notice", err);
+                } else {
+                    showAlertModal("Success", res.message || "Applied preset successfully!");
+                }
+            });
+        } else {
+            showAlertModal("Success", "Applied preset '" + preset + "' to " + targetingMode + " (Browser Preview Mode)!");
         }
     });
 }

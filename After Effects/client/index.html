@@ -192,21 +192,49 @@
         </div>
     </main>
 
-    <!-- Tab 3: Stylize -->
+    <!-- Tab 3: Stylize (After Effects Layer & Preset System) -->
     <main id="tab-stylize" class="tab-content">
         <!-- Live Style Summary Banner -->
         <div class="card stylize-summary-card">
             <div class="card-title">Live Style Config</div>
             <div id="stylizeSummary" class="stylize-summary-text">
-                Words: Full Cue | Anim: None | Pos: Bottom (Center) | Size: 24px | Stroke: On
+                Preset: Pop In | Target: All CGP Layers | Words: Full Cue | Size: 24px
             </div>
         </div>
 
-        <!-- 1. Words Per Layer -->
+        <!-- 1. Animation Preset -->
         <div class="card">
-            <div class="card-title">A. Words Per Layer</div>
+            <div class="card-title">A. Animation Preset</div>
             <div class="form-group">
-                <label for="selectWordsPerLayer">Density / Chunking:</label>
+                <label for="selectAEPreset">Built-in Preset:</label>
+                <select id="selectAEPreset">
+                    <option value="pop_in">Pop In (Scale Pulse)</option>
+                    <option value="clean_fade">Clean Fade (Opacity In/Out)</option>
+                    <option value="karaoke_highlight">Karaoke Highlight (Glow & Scale)</option>
+                    <option value="lower_third_soft">Lower Third Soft (Subtle Scale & Fade)</option>
+                    <option value="word_kinetic">Word by Word Kinetic (Rapid Pop)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 2. Layer Targeting & Scope -->
+        <div class="card">
+            <div class="card-title">B. Layer Targeting</div>
+            <div class="form-group">
+                <label for="selectAETargeting">Target Layers in Comp:</label>
+                <select id="selectAETargeting">
+                    <option value="cgp_all">Apply to all CGP caption layers</option>
+                    <option value="selected">Apply to selected layers only</option>
+                    <option value="comp_all">Apply to all text layers in comp</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 3. Words Per Layer (For New Layer Generation) -->
+        <div class="card">
+            <div class="card-title">C. Density / Words Per Layer</div>
+            <div class="form-group">
+                <label for="selectWordsPerLayer">Generation Chunking:</label>
                 <select id="selectWordsPerLayer">
                     <option value="full">Full Cue (Default Sentence)</option>
                     <option value="1">1 Word Per Layer (Kinetic Pop)</option>
@@ -216,23 +244,9 @@
             </div>
         </div>
 
-        <!-- 2. Animation -->
+        <!-- 4. Layout & Position -->
         <div class="card">
-            <div class="card-title">B. Animation Effect</div>
-            <div class="form-group">
-                <label for="selectAnimation">Entry & Motion Style:</label>
-                <select id="selectAnimation">
-                    <option value="none">None (Static)</option>
-                    <option value="pop">Pop In (Scale Pulse)</option>
-                    <option value="fade">Fade (Opacity In/Out)</option>
-                    <option value="karaoke">Karaoke Highlight</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- 3. Layout & Position -->
-        <div class="card">
-            <div class="card-title">C. Layout & Alignment</div>
+            <div class="card-title">D. Layout & Alignment</div>
             <div class="form-row">
                 <div class="form-group half">
                     <label for="selectPosition">Vertical Position:</label>
@@ -253,9 +267,9 @@
             </div>
         </div>
 
-        <!-- 4. Appearance -->
+        <!-- 5. Appearance -->
         <div class="card">
-            <div class="card-title">D. Appearance & Typography</div>
+            <div class="card-title">E. Appearance & Typography</div>
             <div class="form-group">
                 <label for="sliderStylizeFontSize">Font Size (px): <span id="lblStylizeFontSizeVal">24px</span></label>
                 <input type="range" id="sliderStylizeFontSize" min="12" max="72" value="24" step="1">
@@ -285,16 +299,16 @@
             </div>
         </div>
 
-        <!-- 5. Apply Scope & Action -->
+        <!-- 6. Action Buttons -->
         <div class="card">
-            <div class="card-title">E. Apply Scope</div>
-            <div class="form-group">
-                <select id="selectApplyScope">
-                    <option value="all">Apply to All Captions</option>
-                    <option value="selected">Apply to Selected Cues Only</option>
-                </select>
+            <div class="card-title">F. Actions</div>
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+                <button id="btnGenerateCaptionLayers" class="btn-primary" style="width: 100%;">✨ Generate Caption Layers</button>
+                <div style="display: flex; gap: 8px;">
+                    <button id="btnApplyPresetSelected" class="btn-secondary" style="flex: 1; font-size: 10px; padding: 6px 4px;">Apply Preset to Selected Layers</button>
+                    <button id="btnApplyPresetAllCGP" class="btn-secondary" style="flex: 1; font-size: 10px; padding: 6px 4px;">Apply Preset to All CGP Layers</button>
+                </div>
             </div>
-            <button id="btnApplyStylized" class="btn-primary" style="margin-top: 10px; width: 100%;">✨ Apply Stylized Captions</button>
         </div>
     </main>
 

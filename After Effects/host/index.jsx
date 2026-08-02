@@ -408,3 +408,152 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
         return "ERR|" + e.toString();
     }
 };
+
+$._AE_CGP_.applyPresetToLayers = function(jsonPath) {
+    try {
+        var targetComp = app.project.activeComp;
+        if (!targetComp) {
+            return "ERR|No active composition found. Please select or open a composition in After Effects.";
+        }
+
+        var jsonFile = new File(jsonPath);
+        if (!jsonFile.exists) {
+            return "ERR|Preset config file missing: " + jsonPath;
+        }
+
+        jsonFile.open("r");
+        var jsonText = jsonFile.read();
+        jsonFile.close();
+
+        var payload = null;
+        try {
+            payload = eval("(" + jsonText + ")");
+        } catch(eJson) {
+            return "ERR|Failed to parse preset JSON payload: " + eJson.toString();
+        }
+
+        if (!payload) return "ERR|Empty preset payload.";
+
+        var preset = payload.preset || "pop_in";
+        var targetingMode = payload.targetingMode || "selected"; // 'selected', 'cgp_all', 'comp_all'
+        var style = payload.style || {};
+
+        var targetLayers = [];
+        if (targetingMode === "selected") {
+            if (targetComp.selectedLayers && targetComp.selectedLayers.length > 0) {
+                for (var s = 0; s < targetComp.selectedLayers.length; s++) {
+                    if (targetComp.selectedLayers[s] instanceof TextLayer) {
+                        targetLayers.push(targetComp.selectedLayers[s]);
+                    }
+                }
+            }
+        } else if (targetingMode === "cgp_all") {
+            for (var l = 1; l <= targetComp.numLayers; l++) {
+                var lyr = targetComp.layer(l);
+                if (lyr instanceof TextLayer && (lyr.name.indexOf("CGP_Caption_") === 0 || lyr.comment === "CGP_SUBTITLE")) {
+                    targetLayers.push(lyr);
+                }
+            }
+        } else if (targetingMode === "comp_all") {
+            for (var l2 = 1; l2 <= targetComp.numLayers; l2++) {
+                var lyr2 = targetComp.layer(l2);
+                if (lyr2 instanceof TextLayer) {
+                    targetLayers.push(lyr2);
+                }
+            }
+        }
+
+        if (targetLayers.length === 0) {
+            return "ERR|No matching text layers found for targeting mode: " + targetingMode;
+        }
+
+        app.beginUndoGroup("CGP Apply Preset To Layers");
+
+        var compWidth = targetComp.width;
+        var compHeight = targetComp.height;
+
+        var primaryRgb = hexToRgb(style.textColor || "#FFFFFF");
+        var highlightRgb = hexToRgb(style.highlightColor || "#FFD700");
+        var strokeRgb = hexToRgb(style.strokeColor || "#000000");
+
+        var posVert = style.position || "bottom";
+        var alignHoriz = style.align || "center";
+
+        var posY = (posVert === "top") ? (compHeight * 0.15) : ((posVert === "center") ? (compHeight * 0.5) : (compHeight * 0.85));
+        var posX = (alignHoriz === "left") ? (compWidth * 0.2) : ((alignHoriz === "right") ? (compWidth * 0.8) : (compWidth * 0.5));
+
+        var baseFontSize = style.fontSize ? (compHeight * (style.fontSize / 550.0)) : (compHeight * 0.05);
+
+        for (var i = 0; i < targetLayers.length; i++) {
+            var textLayer = targetLayers[i];
+            var start = textLayer.inPoint;
+            var end = textLayer.outPoint;
+
+            var textProp = textLayer.property("Source Text");
+            var textDocument = textProp.value;
+
+            textDocument.fontSize = baseFontSize;
+            textDocument.fillColor = (preset === "karaoke_highlight" ? highlightRgb : primaryRgb);
+            textDocument.applyFill = true;
+
+            if (style.enableStroke !== false) {
+                textDocument.strokeColor = strokeRgb;
+                textDocument.strokeWidth = compHeight * 0.004;
+                textDocument.applyStroke = true;
+            } else {
+                textDocument.applyStroke = false;
+            }
+
+            if (alignHoriz === "left") {
+                textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
+            } else if (alignHoriz === "right") {
+                textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
+            } else {
+                textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+            }
+
+            textProp.setValue(textDocument);
+
+            var bounds = textLayer.sourceRectAtTime(start, false);
+            var anchorX = bounds.left + bounds.width / 2;
+            var anchorY = bounds.top + bounds.height / 2;
+
+            textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
+            textLayer.property("Position").setValue([posX, posY]);
+
+            // Apply keyframe animation preset
+            if (preset === "pop_in" || preset === "word_kinetic") {
+                var scaleProp = textLayer.property("Scale");
+                scaleProp.setValueAtTime(start, [0, 0]);
+                scaleProp.setValueAtTime(start + 0.08, [125, 125]);
+                scaleProp.setValueAtTime(start + 0.15, [100, 100]);
+            } else if (preset === "karaoke_highlight") {
+                var scaleK = textLayer.property("Scale");
+                scaleK.setValueAtTime(start, [100, 100]);
+                scaleK.setValueAtTime(start + 0.06, [118, 118]);
+                scaleK.setValueAtTime(start + 0.14, [100, 100]);
+            } else if (preset === "clean_fade") {
+                var opacClean = textLayer.property("Opacity");
+                opacClean.setValueAtTime(start, 0);
+                opacClean.setValueAtTime(start + 0.15, 100);
+                opacClean.setValueAtTime(end - 0.15, 100);
+                opacClean.setValueAtTime(end, 0);
+            } else if (preset === "lower_third_soft") {
+                var opacPod = textLayer.property("Opacity");
+                opacPod.setValueAtTime(start, 0);
+                opacPod.setValueAtTime(start + 0.25, 100);
+                opacPod.setValueAtTime(end - 0.25, 100);
+                opacPod.setValueAtTime(end, 0);
+
+                var scalePod = textLayer.property("Scale");
+                scalePod.setValueAtTime(start, [94, 94]);
+                scalePod.setValueAtTime(start + 0.3, [100, 100]);
+            }
+        }
+
+        app.endUndoGroup();
+        return "OK|Successfully applied preset '" + preset + "' to " + targetLayers.length + " text layers!";
+    } catch(e) {
+        return "ERR|" + e.toString();
+    }
+};
