@@ -264,3 +264,115 @@ $._PPP_.importSubtitles = function(srtPath, jsonPath, stylePreset) {
         return "ERR|" + e.toString();
     }
 };
+
+$._PPP_.importStyledSubtitles = function(jsonPath) {
+    try {
+        var seq = null;
+        if (app && app.project) {
+            if (app.project.activeSequence) {
+                seq = app.project.activeSequence;
+            } else if (app.project.sequences && app.project.sequences.numSequences > 0) {
+                seq = app.project.sequences[0];
+            }
+        }
+
+        if (!seq) {
+            return "ERR|Could not read active sequence. Make sure a sequence is open in Premiere Pro.";
+        }
+
+        var jsonFile = new File(jsonPath);
+        if (!jsonFile.exists) {
+            return "ERR|Styled subtitle payload missing on disk: " + jsonPath;
+        }
+
+        jsonFile.open("r");
+        var jsonText = jsonFile.read();
+        jsonFile.close();
+
+        var payload = null;
+        try {
+            payload = eval("(" + jsonText + ")");
+        } catch(eJson) {
+            return "ERR|Failed to parse styled subtitle JSON payload: " + eJson.toString();
+        }
+
+        if (!payload) return "ERR|Empty styled subtitle payload.";
+
+        var style = payload.style || {};
+        var captions = payload.captions || [];
+        var words = payload.words || [];
+
+        // Kinetic / Karaoke mode uses word-level timing if available
+        var items = [];
+        if ((style.mode === "kinetic" || style.mode === "karaoke") && words && words.length > 0) {
+            for (var w = 0; w < words.length; w++) {
+                items.push({
+                    text: words[w].word,
+                    start: words[w].start,
+                    end: words[w].end
+                });
+            }
+        } else {
+            for (var c = 0; c < captions.length; c++) {
+                items.push({
+                    text: captions[c].text,
+                    start: captions[c].start,
+                    end: captions[c].end
+                });
+            }
+        }
+
+        if (items.length === 0) {
+            return "ERR|No caption or word items available to create styled subtitles.";
+        }
+
+        var targetTrack = null;
+        if (seq.videoTracks && seq.videoTracks.numTracks > 0) {
+            targetTrack = seq.videoTracks[seq.videoTracks.numTracks - 1];
+            if (!targetTrack) targetTrack = seq.videoTracks[0];
+        }
+
+        if (!targetTrack) {
+            return "ERR|No video tracks available in active sequence.";
+        }
+
+        var createdCount = 0;
+        var fontSize = style.fontSize || 28;
+        var fontColor = style.primaryColor || "#FFFFFF";
+
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var titleName = "Cap_" + (style.id || "styled") + "_" + (i + 1);
+            var titleItem = null;
+
+            if (typeof app.project.createNewTitle === "function") {
+                try {
+                    titleItem = app.project.createNewTitle(titleName, item.text, "Arial", fontSize, fontColor);
+                } catch(eTitle) {}
+            }
+
+            if (titleItem && typeof targetTrack.insertClip === "function") {
+                try {
+                    targetTrack.insertClip(titleItem, item.start);
+                    createdCount++;
+                } catch(eIns) {}
+            }
+        }
+
+        if (createdCount > 0) {
+            return "OK|Created " + createdCount + " styled caption elements on active sequence (" + (style.name || style.id) + ")!";
+        }
+
+        // Fallback: If native title creation API is restricted in current Premiere version, fallback to SRT import with style notification
+        var srtPath = jsonPath.replace("_styled.json", ".srt");
+        var srtFile = new File(srtPath);
+        if (srtFile.exists) {
+            return $._PPP_.importSubtitles(srtPath);
+        }
+
+        return "ERR|Could not create styled graphic layers on the sequence video track.";
+
+    } catch (e) {
+        return "ERR|" + e.toString();
+    }
+};

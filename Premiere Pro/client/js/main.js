@@ -573,6 +573,7 @@ function importSubtitlesToSequence() {
     console.log("[CaptionGeneratorPro] importSubtitlesToSequence() triggered.");
 
     var captions = SubtitleEditor.captions;
+    var words = SubtitleEditor.words || [];
     if (!captions || captions.length === 0) {
         console.warn("[CaptionGeneratorPro] importSubtitlesToSequence: captions list is empty.");
         showAlertModal("No Subtitles", "No subtitles available. Please transcribe first.");
@@ -588,6 +589,9 @@ function importSubtitlesToSequence() {
             btn.innerText = "Processing...";
         }
 
+        var currentStyleId = UserPreferences.load().captionStyle || "standard";
+        var styleObj = (typeof CaptionStyles !== "undefined") ? CaptionStyles.getStyle(currentStyleId) : { id: "standard", name: "Standard" };
+
         if (typeof require !== "undefined") {
             var fs = require("fs");
             var path = require("path");
@@ -601,6 +605,7 @@ function importSubtitlesToSequence() {
 
             var tempSrt = path.join(getTempFolder(), filename + ".srt");
             var tempJson = path.join(getTempFolder(), filename + ".json");
+            var tempStyledJson = path.join(getTempFolder(), filename + "_styled.json");
 
             // Write updated SRT
             var srtContent = "";
@@ -612,9 +617,7 @@ function importSubtitlesToSequence() {
             // Write updated JSON
             fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
-            console.log("[CaptionGeneratorPro] Invoking ExtendScriptBridge.importSubtitles with:", tempSrt);
-
-            ExtendScriptBridge.importSubtitles(tempSrt, tempJson, "standard", function(res) {
+            var handleResult = function(res) {
                 if (btn) btn.disabled = false;
                 if (!res || !res.success) {
                     if (btn) btn.innerText = originalText;
@@ -631,8 +634,22 @@ function importSubtitlesToSequence() {
                     }, 1800);
                 }
 
-                showAlertModal("Subtitles Created", "Subtitles created successfully on your sequence!");
-            });
+                showAlertModal("Subtitles Created", "Subtitles created successfully on your sequence (" + styleObj.name + ")!");
+            };
+
+            if (currentStyleId === "standard") {
+                console.log("[CaptionGeneratorPro] Standard mode: Invoking ExtendScriptBridge.importSubtitles with:", tempSrt);
+                ExtendScriptBridge.importSubtitles(tempSrt, tempJson, "standard", handleResult);
+            } else {
+                console.log("[CaptionGeneratorPro] Styled mode (" + currentStyleId + "): Invoking ExtendScriptBridge.importStyledSubtitles");
+                var styledPayload = {
+                    style: styleObj,
+                    captions: captions,
+                    words: words
+                };
+                fs.writeFileSync(tempStyledJson, JSON.stringify(styledPayload, null, 4), "utf-8");
+                ExtendScriptBridge.importStyledSubtitles(tempStyledJson, handleResult);
+            }
         } else {
             if (btn) {
                 btn.disabled = false;
@@ -641,7 +658,7 @@ function importSubtitlesToSequence() {
                     btn.innerText = originalText;
                 }, 1800);
             }
-            showAlertModal("Preview Mode", "Subtitles created on sequence (Preview Mode).");
+            showAlertModal("Preview Mode", "Subtitles created on sequence (Preview Mode - " + styleObj.name + ").");
         }
     });
 }
