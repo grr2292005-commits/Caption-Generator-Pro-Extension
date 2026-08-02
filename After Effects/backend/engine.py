@@ -67,69 +67,117 @@ class CaptionBackend:
                 if hasattr(seg, 'words') and seg.words:
                     for w in seg.words:
                         words.append({"word": w.word, "start": w.start, "end": w.end})
-                result_segments.append({"text": seg.text, "words": words})
+                result_segments.append({"text": seg.text, "words": words, "start": seg.start, "end": seg.end})
         except Exception as e:
             print(f"faster-whisper unavailable or failed ({e}), falling back to standard whisper...")
-            import whisper
-            model = whisper.load_model(model_name, device=device, download_root=cache_dir)
-            task = "translate" if translate else "transcribe"
-            res = model.transcribe(audio_path, word_timestamps=True, task=task)
-            result_segments = res.get("segments", [])
+            try:
+                import whisper
+                model = whisper.load_model(model_name, device=device, download_root=cache_dir)
+                task = "translate" if translate else "transcribe"
+                res = model.transcribe(audio_path, word_timestamps=True, task=task)
+                result_segments = res.get("segments", [])
+            except Exception as e2:
+                print(f"Standard whisper failed: {e2}")
+                raise e2
 
-        # Process words into structured caption cues
+        # Process words into structured caption cues AND word-level timestamps
         captions = []
-        current_text = []
-        current_start = None
-        current_end = None
-        gap_seconds = gap_frames * 0.033
+        words_output = []
 
-        all_words = []
-        for seg in result_segments:
-            words = seg.get("words", [])
-            if words:
-                all_words.extend(words)
-            else:
-                # Fallback segment level if word timestamps missing
-                all_words.append({"word": seg.get("text", "").strip(), "start": seg.get("start", 0), "end": seg.get("end", 1)})
-
-        for word_data in all_words:
-            word = word_data["word"].strip()
-            
-            if remove_fillers:
-                clean_w = re.sub(r'[^\w\s]', '', word).lower()
-                if clean_w in self.filler_words:
-                    continue
-                    
-            if not word: 
-                continue
-
-            start, end = word_data["start"], word_data["end"]
-
-            if current_start is None:
-                current_start, current_end, current_text = start, end, [word]
-            else:
-                temp_text = " ".join(current_text + [word])
-                duration = end - current_start
-
-                if len(temp_text) > max_chars or duration > max_dur:
-                    captions.append({
-                        "text": self.format_lines(" ".join(current_text), line_mode),
-                        "start": current_start,
-                        "end": current_end
-                    })
-                    current_start, current_end, current_text = start + gap_seconds, end, [word]
+        try:
+            all_words = []
+            for seg in result_segments:
+                words = seg.get("words", [])
+                if words:
+                    all_words.extend(words)
                 else:
-                    current_text.append(word)
-                    current_end = end
+                    # Fallback segment level if word timestamps missing
+                    seg_text = seg.get("text", "").strip()
+                    if seg_text:
+                        all_words.append({
+                            "word": seg_text,
+                            "start": seg.get("start", 0.0),
+                            "end": seg.get("end", 1.0)
+                        })
 
-        if current_text:
-            captions.append({
-                "text": self.format_lines(" ".join(current_text), line_mode),
-                "start": current_start,
-                "end": current_end
-            })
+            current_text = []
+            current_start = None
+            current_end = None
+            current_cue_words = []
+            gap_seconds = gap_frames * 0.033
+            cue_idx = 0
 
-        return captions
+            for word_data in all_words:
+                raw_w = word_data.get("word", "")
+                word = raw_w.strip()
+                
+                if remove_fillers:
+                    clean_w = re.sub(r'[^\w\s]', '', word).lower()
+                    if clean_w in self.filler_words:
+                        continue
+                        
+                if not word: 
+                    continue
+
+                start = float(word_data.get("start", 0.0))
+                end = float(word_data.get("end", 0.0))
+
+                w_obj = {
+                    "word": word,
+                    "start": round(start, 3),
+                    "end": round(end, 3),
+                    "cue_index": cue_idx
+                }
+
+                if current_start is None:
+                    current_start, current_end = start, end
+                    current_text = [word]
+                    current_cue_words = [w_obj]
+                else:
+                    temp_text = " ".join(current_text + [word])
+                    duration = end - current_start
+
+                    if len(temp_text) > max_chars or duration > max_dur:
+                        captions.append({
+                            "text": self.format_lines(" ".join(current_text), line_mode),
+                            "start": round(current_start, 3),
+                            "end": round(current_end, 3)
+                        })
+                        words_output.extend(current_cue_words)
+
+                        cue_idx += 1
+                        current_start, current_end = start + gap_seconds, end
+                        current_text = [word]
+                        w_obj["cue_index"] = cue_idx
+                        current_cue_words = [w_obj]
+                    else:
+                        current_text.append(word)
+                        current_end = end
+                        w_obj["cue_index"] = cue_idx
+                        current_cue_words.append(w_obj)
+
+            if current_text:
+                captions.append({
+                    "text": self.format_lines(" ".join(current_text), line_mode),
+                    "start": round(current_start, 3),
+                    "end": round(current_end, 3)
+                })
+                words_output.extend(current_cue_words)
+
+        except Exception as proc_err:
+            print(f"Word processing error: {proc_err}. Falling back to cue-only segment list.")
+            captions = []
+            words_output = []
+            for seg in result_segments:
+                txt = seg.get("text", "").strip()
+                if txt:
+                    captions.append({
+                        "text": self.format_lines(txt, line_mode),
+                        "start": round(float(seg.get("start", 0.0)), 3),
+                        "end": round(float(seg.get("end", 1.0)), 3)
+                    })
+
+        return captions, words_output
 
     def format_lines(self, text, mode):
         if mode == "double":
@@ -139,7 +187,7 @@ class CaptionBackend:
                 return " ".join(words[:mid]) + "\n" + " ".join(words[mid:])
         return text
 
-    def export_files(self, captions, folder, base_name):
+    def export_files(self, captions, folder, base_name, words=None):
         os.makedirs(folder, exist_ok=True)
         results = {}
 
@@ -165,7 +213,11 @@ class CaptionBackend:
         # 3. JSON
         json_path = os.path.join(folder, base_name + ".json")
         with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(captions, f, indent=4)
+            json_data = {
+                "captions": captions,
+                "words": words if words is not None else []
+            }
+            json.dump(json_data, f, indent=4)
         results['json'] = json_path
 
         return results
@@ -203,7 +255,7 @@ def main():
     backend = CaptionBackend()
 
     try:
-        captions = backend.transcribe_audio(
+        captions, words_list = backend.transcribe_audio(
             audio_path=args.audio,
             model_name=args.model,
             device=args.device,
@@ -216,13 +268,14 @@ def main():
         )
 
         output_dir = backend.get_versioned_folder(args.project_path, args.project_name)
-        file_paths = backend.export_files(captions, output_dir, "captions")
+        file_paths = backend.export_files(captions, output_dir, "captions", words=words_list)
 
         res = {
             "success": True,
             "export_folder": output_dir,
             "files": file_paths,
-            "captions": captions
+            "captions": captions,
+            "words": words_list
         }
 
         print("---RESULT_JSON_START---")

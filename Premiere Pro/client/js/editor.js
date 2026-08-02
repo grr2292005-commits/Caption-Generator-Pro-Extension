@@ -1,6 +1,7 @@
 // In-Panel Subtitle Cue Editor with Editable Timestamps
 var SubtitleEditor = {
     captions: [],
+    words: [],
     
     init: function() {
         var self = this;
@@ -12,8 +13,9 @@ var SubtitleEditor = {
         }
     },
 
-    loadCaptions: function(captionsList) {
+    loadCaptions: function(captionsList, wordsList) {
         this.captions = captionsList || [];
+        this.words = wordsList || [];
         this.render();
     },
 
