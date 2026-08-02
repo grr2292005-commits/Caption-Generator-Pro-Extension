@@ -302,7 +302,16 @@ var UserPreferences = {
         targetLang: "none",
         versioning: true,
         hardware: "cuda",
-        captionStyle: "standard"
+        wordsPerLayer: "full",
+        animation: "none",
+        position: "bottom",
+        align: "center",
+        fontSize: 24,
+        textColor: "#FFFFFF",
+        highlightColor: "#FFD700",
+        enableStroke: true,
+        strokeColor: "#000000",
+        applyScope: "all"
     },
 
     load: function() {
@@ -343,8 +352,29 @@ var UserPreferences = {
         if (chkVer) prefs.versioning = chkVer.checked;
         var selHw = document.getElementById("selectHardware");
         if (selHw) prefs.hardware = selHw.value;
-        var selStyle = document.getElementById("selectCaptionStyle");
-        if (selStyle) prefs.captionStyle = selStyle.value;
+
+        // Stylize tab options
+        var sWpl = document.getElementById("selectWordsPerLayer");
+        if (sWpl) prefs.wordsPerLayer = sWpl.value;
+        var sAnim = document.getElementById("selectAnimation");
+        if (sAnim) prefs.animation = sAnim.value;
+        var sPos = document.getElementById("selectPosition");
+        if (sPos) prefs.position = sPos.value;
+        var sAlign = document.getElementById("selectAlign");
+        if (sAlign) prefs.align = sAlign.value;
+        var sFSize = document.getElementById("sliderStylizeFontSize");
+        if (sFSize) prefs.fontSize = parseInt(sFSize.value, 10);
+        var cText = document.getElementById("colorText");
+        if (cText) prefs.textColor = cText.value;
+        var cHl = document.getElementById("colorHighlight");
+        if (cHl) prefs.highlightColor = cHl.value;
+        var chkStr = document.getElementById("chkStroke");
+        if (chkStr) prefs.enableStroke = chkStr.checked;
+        var cStr = document.getElementById("colorStroke");
+        if (cStr) prefs.strokeColor = cStr.value;
+        var sScope = document.getElementById("selectApplyScope");
+        if (sScope) prefs.applyScope = sScope.value;
+
         return prefs;
     },
 
@@ -380,15 +410,57 @@ var UserPreferences = {
         if (chkVer) chkVer.checked = prefs.versioning !== false;
         var selHw = document.getElementById("selectHardware");
         if (selHw) selHw.value = prefs.hardware || "cuda";
-        var selStyle = document.getElementById("selectCaptionStyle");
-        if (selStyle) selStyle.value = prefs.captionStyle || "standard";
+
+        // Stylize tab preferences restore
+        var sWpl = document.getElementById("selectWordsPerLayer");
+        if (sWpl) sWpl.value = prefs.wordsPerLayer || "full";
+        var sAnim = document.getElementById("selectAnimation");
+        if (sAnim) sAnim.value = prefs.animation || "none";
+        var sPos = document.getElementById("selectPosition");
+        if (sPos) sPos.value = prefs.position || "bottom";
+        var sAlign = document.getElementById("selectAlign");
+        if (sAlign) sAlign.value = prefs.align || "center";
+        var sFSize = document.getElementById("sliderStylizeFontSize");
+        var lblFSize = document.getElementById("lblStylizeFontSizeVal");
+        if (sFSize) { sFSize.value = prefs.fontSize || 24; if (lblFSize) lblFSize.innerText = (prefs.fontSize || 24) + "px"; }
+        var cText = document.getElementById("colorText");
+        if (cText) cText.value = prefs.textColor || "#FFFFFF";
+        var cHl = document.getElementById("colorHighlight");
+        if (cHl) cHl.value = prefs.highlightColor || "#FFD700";
+        var chkStr = document.getElementById("chkStroke");
+        if (chkStr) chkStr.checked = prefs.enableStroke !== false;
+        var cStr = document.getElementById("colorStroke");
+        if (cStr) cStr.value = prefs.strokeColor || "#000000";
+        var sScope = document.getElementById("selectApplyScope");
+        if (sScope) sScope.value = prefs.applyScope || "all";
+
+        updateStylizeSummary();
     },
 
     autoSave: function() {
         var self = this;
         this.save(this.gather());
+        updateStylizeSummary();
     }
 };
+
+function updateStylizeSummary() {
+    var summaryEl = document.getElementById("stylizeSummary");
+    if (!summaryEl) return;
+    var prefs = UserPreferences.gather();
+    
+    var wMap = { "full": "Full Cue", "1": "1 Word/Layer", "2": "2 Words/Layer", "3": "3 Words/Layer" };
+    var aMap = { "none": "None", "pop": "Pop In", "fade": "Fade", "karaoke": "Karaoke" };
+    var pMap = { "bottom": "Bottom", "center": "Center", "top": "Top" };
+    var alMap = { "center": "Center", "left": "Left", "right": "Right" };
+    
+    var txt = "Words: " + (wMap[prefs.wordsPerLayer] || "Full Cue") +
+              " | Anim: " + (aMap[prefs.animation] || "None") +
+              " | Pos: " + (pMap[prefs.position] || "Bottom") + " (" + (alMap[prefs.align] || "Center") + ")" +
+              " | Size: " + (prefs.fontSize || 24) + "px" +
+              " | Stroke: " + (prefs.enableStroke ? "On" : "Off");
+    summaryEl.innerText = txt;
+}
 
 // Main Application Panel Controller
 document.addEventListener("DOMContentLoaded", function() {
@@ -474,25 +546,33 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    // Auto-save on model, style, radio, and checkbox changes
+    // Auto-save on model, radio, and checkbox changes
     var selectModel = document.getElementById("selectModel");
     if (selectModel) selectModel.addEventListener("change", function() { UserPreferences.autoSave(); });
 
-    var selectStyle = document.getElementById("selectCaptionStyle");
-    if (selectStyle) {
-        selectStyle.addEventListener("change", function() {
+    // Stylize controls change listeners
+    var sFontSize = document.getElementById("sliderStylizeFontSize");
+    var lblFontSize = document.getElementById("lblStylizeFontSizeVal");
+    if (sFontSize && lblFontSize) {
+        sFontSize.addEventListener("input", function() {
+            lblFontSize.innerText = sFontSize.value + "px";
             UserPreferences.autoSave();
-            if (typeof SubtitleEditor !== "undefined" && SubtitleEditor.render) {
-                SubtitleEditor.render();
-            }
         });
     }
 
-    var selSrc = document.getElementById("selectSourceLang");
-    if (selSrc) selSrc.addEventListener("change", function() { UserPreferences.autoSave(); });
-
-    var selTgt = document.getElementById("selectTargetLang");
-    if (selTgt) selTgt.addEventListener("change", function() { UserPreferences.autoSave(); });
+    var stylizeControlIds = [
+        "selectWordsPerLayer", "selectAnimation", "selectPosition", "selectAlign",
+        "colorText", "colorHighlight", "chkStroke", "colorStroke", "selectApplyScope"
+    ];
+    stylizeControlIds.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) {
+            el.addEventListener("change", function() { UserPreferences.autoSave(); });
+            if (el.tagName === "INPUT" && el.type === "color") {
+                el.addEventListener("input", function() { UserPreferences.autoSave(); });
+            }
+        }
+    });
 
     var radios = document.querySelectorAll('input[name="lineMode"]');
     radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });
@@ -510,9 +590,16 @@ document.addEventListener("DOMContentLoaded", function() {
     // 5. UI Buttons
     var btnTranscribe = document.getElementById("btnTranscribe");
     var btnApplyEdits = document.getElementById("btnApplyEdits");
+    var btnApplyStylized = document.getElementById("btnApplyStylized");
     var btnExportSRT = document.getElementById("btnExportSRT");
     var btnModalCancel = document.getElementById("btnModalCancel");
     var btnModalClose = document.getElementById("btnModalClose");
+
+    if (btnApplyStylized) {
+        btnApplyStylized.addEventListener("click", function() {
+            applyStylizedCaptionsFromTab();
+        });
+    }
 
     if (btnTranscribe) {
         btnTranscribe.addEventListener("click", function() {
@@ -1051,4 +1138,90 @@ function fmtTime(seconds, fmt) {
     var sep = fmt === "srt" ? "," : ".";
 
     return `${h < 10 ? '0' : ''}${h}:${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}${sep}${ms < 100 ? (ms < 10 ? '00' : '0') : ''}${ms}`;
+}
+
+function applyStylizedCaptionsFromTab() {
+    ensureLicensedAction("import", function() {
+        var captions = SubtitleEditor.captions || [];
+        var words = SubtitleEditor.words || [];
+
+        if (!captions || captions.length === 0) {
+            showAlertModal("No Captions Found", "Please transcribe timeline audio first in the Transcribe tab.");
+            return;
+        }
+
+        var btn = document.getElementById("btnApplyStylized");
+        var originalText = "✨ Apply Stylized Captions";
+        if (btn) { btn.disabled = true; btn.innerText = "Applying Styles..."; }
+
+        var prefs = UserPreferences.gather();
+        var styleConfig = {
+            wordsPerLayer: prefs.wordsPerLayer || "full",
+            animation: prefs.animation || "none",
+            position: prefs.position || "bottom",
+            align: prefs.align || "center",
+            fontSize: parseInt(prefs.fontSize, 10) || 24,
+            textColor: prefs.textColor || "#FFFFFF",
+            highlightColor: prefs.highlightColor || "#FFD700",
+            enableStroke: prefs.enableStroke === true,
+            strokeColor: prefs.strokeColor || "#000000",
+            applyScope: prefs.applyScope || "all"
+        };
+
+        // Filter selected captions if applyScope is 'selected'
+        var targetCaptions = captions;
+        if (styleConfig.applyScope === "selected" && SubtitleEditor.selectedIndex !== undefined && SubtitleEditor.selectedIndex >= 0) {
+            var selCap = captions[SubtitleEditor.selectedIndex];
+            if (selCap) targetCaptions = [selCap];
+        }
+
+        // Process item chunking if words per layer is 1, 2, or 3
+        var finalItems = [];
+        if (styleConfig.wordsPerLayer !== "full" && words && words.length > 0) {
+            var chunkSize = parseInt(styleConfig.wordsPerLayer, 10) || 1;
+            for (var i = 0; i < words.length; i += chunkSize) {
+                var chunk = words.slice(i, i + chunkSize);
+                var chunkText = chunk.map(function(w) { return w.word; }).join(" ");
+                finalItems.push({
+                    text: chunkText,
+                    start: chunk[0].start,
+                    end: chunk[chunk.length - 1].end
+                });
+            }
+        } else {
+            finalItems = targetCaptions.map(function(c) {
+                return { text: c.text, start: c.start, end: c.end };
+            });
+        }
+
+        var payload = {
+            style: styleConfig,
+            captions: finalItems,
+            words: words
+        };
+
+        if (typeof require !== "undefined") {
+            var fs = require("fs");
+            var path = require("path");
+            var tempFolder = getTempFolder();
+            var jsonPath = path.join(tempFolder, "cgp_stylize_payload.json");
+            fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 4), "utf-8");
+
+            var importMethod = document.getElementById("selectImportMethod") ? document.getElementById("selectImportMethod").value : "individual";
+            var removeOld = document.getElementById("chkRemoveOldSubtitles") ? document.getElementById("chkRemoveOldSubtitles").checked : true;
+
+            ExtendScriptBridge.importStyledSubtitles(jsonPath, importMethod, removeOld, function(res) {
+                if (btn) { btn.disabled = false; btn.innerText = originalText; }
+                if (!res || !res.success) {
+                    var err = (res && res.error) ? res.error : "Failed to apply stylized captions.";
+                    showAlertModal("Stylize Notice", err);
+                } else {
+                    showAlertModal("Success", "Stylized captions applied successfully to active comp!");
+                }
+            });
+        } else {
+            if (btn) { btn.disabled = false; btn.innerText = originalText; }
+            showAlertModal("Success", "Stylized captions applied (Browser Preview Mode)!");
+        }
+    });
 }

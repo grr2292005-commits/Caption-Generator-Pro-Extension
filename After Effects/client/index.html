@@ -21,6 +21,7 @@
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="tab-transcribe">Transcribe</button>
             <button class="tab-btn" data-tab="tab-editor">Editor</button>
+            <button class="tab-btn" data-tab="tab-stylize">Stylize</button>
             <button class="tab-btn" data-tab="tab-settings">Settings</button>
         </nav>
     </header>
@@ -37,20 +38,6 @@
                     <option value="medium">Medium (High Accuracy - 1.5GB)</option>
                     <option value="large-v3">Large-v3 (Maximum Accuracy - 3GB)</option>
                     <option value="tiny">Tiny (Fastest / Low Accuracy - 75MB)</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-title">Caption Style</div>
-            <div class="form-group">
-                <label for="selectCaptionStyle">Style Preset:</label>
-                <select id="selectCaptionStyle">
-                    <option value="standard">Standard (Default Subtitles)</option>
-                    <option value="clean_pro">Clean Professional</option>
-                    <option value="hormozi">Hormozi Pop (Bold / Center)</option>
-                    <option value="karaoke">Karaoke Highlight (Word Glow)</option>
-                    <option value="podcast">Podcast Soft (Minimalist)</option>
                 </select>
             </div>
         </div>
@@ -205,7 +192,113 @@
         </div>
     </main>
 
-    <!-- Tab 3: Settings -->
+    <!-- Tab 3: Stylize -->
+    <main id="tab-stylize" class="tab-content">
+        <!-- Live Style Summary Banner -->
+        <div class="card stylize-summary-card">
+            <div class="card-title">Live Style Config</div>
+            <div id="stylizeSummary" class="stylize-summary-text">
+                Words: Full Cue | Anim: None | Pos: Bottom (Center) | Size: 24px | Stroke: On
+            </div>
+        </div>
+
+        <!-- 1. Words Per Layer -->
+        <div class="card">
+            <div class="card-title">A. Words Per Layer</div>
+            <div class="form-group">
+                <label for="selectWordsPerLayer">Density / Chunking:</label>
+                <select id="selectWordsPerLayer">
+                    <option value="full">Full Cue (Default Sentence)</option>
+                    <option value="1">1 Word Per Layer (Kinetic Pop)</option>
+                    <option value="2">2 Words Per Layer</option>
+                    <option value="3">3 Words Per Layer</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 2. Animation -->
+        <div class="card">
+            <div class="card-title">B. Animation Effect</div>
+            <div class="form-group">
+                <label for="selectAnimation">Entry & Motion Style:</label>
+                <select id="selectAnimation">
+                    <option value="none">None (Static)</option>
+                    <option value="pop">Pop In (Scale Pulse)</option>
+                    <option value="fade">Fade (Opacity In/Out)</option>
+                    <option value="karaoke">Karaoke Highlight</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 3. Layout & Position -->
+        <div class="card">
+            <div class="card-title">C. Layout & Alignment</div>
+            <div class="form-row">
+                <div class="form-group half">
+                    <label for="selectPosition">Vertical Position:</label>
+                    <select id="selectPosition">
+                        <option value="bottom">Bottom (Lower Third)</option>
+                        <option value="center">Center Screen</option>
+                        <option value="top">Top Header</option>
+                    </select>
+                </div>
+                <div class="form-group half">
+                    <label for="selectAlign">Text Align:</label>
+                    <select id="selectAlign">
+                        <option value="center">Center</option>
+                        <option value="left">Left</option>
+                        <option value="right">Right</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Appearance -->
+        <div class="card">
+            <div class="card-title">D. Appearance & Typography</div>
+            <div class="form-group">
+                <label for="sliderStylizeFontSize">Font Size (px): <span id="lblStylizeFontSizeVal">24px</span></label>
+                <input type="range" id="sliderStylizeFontSize" min="12" max="72" value="24" step="1">
+            </div>
+
+            <div class="form-row" style="margin-bottom: 8px;">
+                <div class="form-group half">
+                    <label for="colorText">Text Color:</label>
+                    <input type="color" id="colorText" value="#FFFFFF" class="color-picker-input">
+                </div>
+                <div class="form-group half">
+                    <label for="colorHighlight">Highlight Color:</label>
+                    <input type="color" id="colorHighlight" value="#FFD700" class="color-picker-input">
+                </div>
+            </div>
+
+            <div class="form-row" style="align-items: center;">
+                <div class="form-group half">
+                    <label class="checkbox-label" style="font-size: 11px;">
+                        <input type="checkbox" id="chkStroke" checked> Enable Text Stroke
+                    </label>
+                </div>
+                <div class="form-group half">
+                    <label for="colorStroke">Stroke Color:</label>
+                    <input type="color" id="colorStroke" value="#000000" class="color-picker-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- 5. Apply Scope & Action -->
+        <div class="card">
+            <div class="card-title">E. Apply Scope</div>
+            <div class="form-group">
+                <select id="selectApplyScope">
+                    <option value="all">Apply to All Captions</option>
+                    <option value="selected">Apply to Selected Cues Only</option>
+                </select>
+            </div>
+            <button id="btnApplyStylized" class="btn-primary" style="margin-top: 10px; width: 100%;">✨ Apply Stylized Captions</button>
+        </div>
+    </main>
+
+    <!-- Tab 4: Settings -->
     <main id="tab-settings" class="tab-content">
         <div class="card">
             <div class="card-title">License</div>
