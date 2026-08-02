@@ -106,6 +106,29 @@ var ExtendScriptBridge = {
         });
     },
 
+    importStyledSubtitles: function(jsonPath, importMethod, replaceExisting, callback) {
+        var cleanJson = jsonPath.replace(/\\/g, "/");
+        var method = importMethod || "direct";
+        var replace = (replaceExisting === true) ? "true" : "false";
+
+        this.loadHost(function(ok, err) {
+            if (!ok) {
+                callback({ success: false, error: err });
+                return;
+            }
+            var script = "$._PPP_.importStyledSubtitles('" + cleanJson + "', '" + method + "', " + replace + ")";
+            ExtendScriptBridge.csInterface.evalScript(script, function(result) {
+                if (result && result.indexOf("OK|") === 0) {
+                    callback({ success: true, message: result.substring(3) });
+                } else if (result && result.indexOf("ERR|") === 0) {
+                    callback({ success: false, error: result.substring(4) });
+                } else {
+                    callback({ success: false, error: result || "Styled subtitle creation failed." });
+                }
+            });
+        });
+    },
+
     setPlayhead: function(seconds, callback) {
         var sec = parseFloat(seconds) || 0;
         this.loadHost(function(ok) {

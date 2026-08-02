@@ -618,6 +618,7 @@ function importSubtitlesToSequence() {
         var originalText = "Create Subtitles";
 
         var captions = SubtitleEditor.captions;
+        var words = SubtitleEditor.words || [];
         if (!captions || captions.length === 0) {
             showAlertModal("No Subtitles", "No subtitles available to create. Please transcribe a composition first.");
             return;
@@ -633,6 +634,9 @@ function importSubtitlesToSequence() {
         var chkRemove = document.getElementById("chkRemoveOldSubtitles");
         var replaceExisting = chkRemove ? chkRemove.checked : true;
 
+        var currentStyleId = UserPreferences.load().captionStyle || "standard";
+        var styleObj = (typeof CaptionStyles !== "undefined") ? CaptionStyles.getStyle(currentStyleId) : { id: "standard", name: "Standard" };
+
         if (typeof require !== "undefined") {
             var fs = require("fs");
             var path = require("path");
@@ -646,6 +650,7 @@ function importSubtitlesToSequence() {
 
             var tempSrt = path.join(getTempFolder(), filename + ".srt");
             var tempJson = path.join(getTempFolder(), filename + ".json");
+            var tempStyledJson = path.join(getTempFolder(), filename + "_styled.json");
 
             var srtContent = "";
             captions.forEach(function(cap, i) {
@@ -654,12 +659,13 @@ function importSubtitlesToSequence() {
             fs.writeFileSync(tempSrt, srtContent, "utf-8");
             fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
-            ExtendScriptBridge.importSubtitles(tempSrt, tempJson, importMethod, replaceExisting, function(res) {
+            var handleResult = function(res) {
                 btn.disabled = false;
                 if (!res || !res.success) {
                     btn.innerText = originalText;
-                    console.error("Subtitle creation technical error:", res && res.error);
-                    showAlertModal("Import Notice", "Could not create text layers in the composition. Please make sure a composition is active and try again.");
+                    var rawErr = (res && res.error) ? res.error : "Unknown error";
+                    console.error("Subtitle creation technical error:", rawErr);
+                    showAlertModal("Import Notice", "Could not create text layers in composition: " + rawErr);
                     return;
                 }
 
@@ -668,15 +674,27 @@ function importSubtitlesToSequence() {
                     btn.innerText = originalText;
                 }, 1800);
 
-                showAlertModal("Subtitles Created", "Subtitles created successfully in your composition!");
-            });
+                showAlertModal("Subtitles Created", "Subtitles created successfully in your composition (" + styleObj.name + ")!");
+            };
+
+            if (currentStyleId === "standard") {
+                ExtendScriptBridge.importSubtitles(tempSrt, tempJson, importMethod, replaceExisting, handleResult);
+            } else {
+                var styledPayload = {
+                    style: styleObj,
+                    captions: captions,
+                    words: words
+                };
+                fs.writeFileSync(tempStyledJson, JSON.stringify(styledPayload, null, 4), "utf-8");
+                ExtendScriptBridge.importStyledSubtitles(tempStyledJson, importMethod, replaceExisting, handleResult);
+            }
         } else {
             btn.disabled = false;
             btn.innerText = "Done!";
             setTimeout(function() {
                 btn.innerText = originalText;
             }, 1800);
-            showAlertModal("Preview Mode", "Subtitles created in active comp (Preview Mode).");
+            showAlertModal("Preview Mode", "Subtitles created in active comp (Preview Mode - " + styleObj.name + ").");
         }
     });
 }
