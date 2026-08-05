@@ -42,7 +42,10 @@ var ExtendScriptBridge = {
                     return;
                 }
                 if (result.indexOf("OK|") === 0) {
-                    callback({ success: true, audioPath: result.substring(3) });
+                    var parts = result.split("|");
+                    var aPath = parts[1] || "";
+                    var expStart = parseFloat(parts[2]) || 0;
+                    callback({ success: true, audioPath: aPath, exportStart: expStart });
                 } else if (result.indexOf("ERR|") === 0) {
                     callback({ success: false, error: result.substring(4) });
                 } else {
