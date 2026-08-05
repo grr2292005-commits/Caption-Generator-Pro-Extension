@@ -58,7 +58,7 @@ var CaptionStyles = {
         }
     },
 
-    getStyle: function(id) {
+    getStyle: function (id) {
         return this.presets[id] || this.presets.standard;
     }
 };
@@ -195,7 +195,7 @@ var WHISPER_LANGUAGES_TARGET = [
 ];
 
 var SearchableSelect = {
-    init: function(containerId, optionsList, onChangeCallback) {
+    init: function (containerId, optionsList, onChangeCallback) {
         var container = document.getElementById(containerId);
         if (!container) return null;
 
@@ -211,13 +211,13 @@ var SearchableSelect = {
             var matches = 0;
             var currentVal = hiddenVal.value;
 
-            optionsList.forEach(function(opt) {
+            optionsList.forEach(function (opt) {
                 if (!query || opt.name.toLowerCase().indexOf(query) !== -1 || opt.code.toLowerCase().indexOf(query) !== -1) {
                     matches++;
                     var item = document.createElement("div");
                     item.className = "search-select-item" + (opt.code === currentVal ? " selected" : "");
                     item.innerText = opt.name;
-                    item.addEventListener("click", function(e) {
+                    item.addEventListener("click", function (e) {
                         e.stopPropagation();
                         setValue(opt.code, opt.name);
                         closeDropdown();
@@ -238,7 +238,7 @@ var SearchableSelect = {
         function setValue(code, name) {
             hiddenVal.value = code;
             if (!name) {
-                var found = optionsList.find(function(o) { return o.code === code; });
+                var found = optionsList.find(function (o) { return o.code === code; });
                 inputDisplay.value = found ? found.name : code;
             } else {
                 inputDisplay.value = name;
@@ -246,20 +246,20 @@ var SearchableSelect = {
         }
 
         function openDropdown() {
-            document.querySelectorAll(".search-select-dropdown").forEach(function(d) {
+            document.querySelectorAll(".search-select-dropdown").forEach(function (d) {
                 d.style.display = "none";
             });
             dropdown.style.display = "block";
             filterInput.value = "";
             renderOptions("");
-            setTimeout(function() { filterInput.focus(); }, 50);
+            setTimeout(function () { filterInput.focus(); }, 50);
         }
 
         function closeDropdown() {
             dropdown.style.display = "none";
         }
 
-        inputDisplay.addEventListener("click", function(e) {
+        inputDisplay.addEventListener("click", function (e) {
             e.stopPropagation();
             if (dropdown.style.display === "block") {
                 closeDropdown();
@@ -268,20 +268,20 @@ var SearchableSelect = {
             }
         });
 
-        filterInput.addEventListener("input", function() {
+        filterInput.addEventListener("input", function () {
             renderOptions(filterInput.value);
         });
 
-        filterInput.addEventListener("click", function(e) {
+        filterInput.addEventListener("click", function (e) {
             e.stopPropagation();
         });
 
-        document.addEventListener("click", function() {
+        document.addEventListener("click", function () {
             closeDropdown();
         });
 
         return {
-            getValue: function() { return hiddenVal.value; },
+            getValue: function () { return hiddenVal.value; },
             setValue: setValue
         };
     }
@@ -310,23 +310,23 @@ var UserPreferences = {
         align: "center"
     },
 
-    load: function() {
+    load: function () {
         try {
             var stored = localStorage.getItem(this.STORAGE_KEY);
             if (stored) {
                 return Object.assign({}, this.defaults, JSON.parse(stored));
             }
-        } catch(e) {}
+        } catch (e) { }
         return Object.assign({}, this.defaults);
     },
 
-    save: function(prefs) {
+    save: function (prefs) {
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(prefs));
-        } catch(e) {}
+        } catch (e) { }
     },
 
-    gather: function() {
+    gather: function () {
         var prefs = {};
         var sel = document.getElementById("selectModel");
         if (sel) prefs.model = sel.value;
@@ -337,7 +337,7 @@ var UserPreferences = {
         var sGap = document.getElementById("sliderGapFrames");
         if (sGap) prefs.gapFrames = parseInt(sGap.value, 10);
         var radios = document.querySelectorAll('input[name="lineMode"]');
-        radios.forEach(function(r) { if (r.checked) prefs.lineMode = r.value; });
+        radios.forEach(function (r) { if (r.checked) prefs.lineMode = r.value; });
         var chkFill = document.getElementById("chkRemoveFillers");
         if (chkFill) prefs.removeFillers = chkFill.checked;
         var selSrc = document.getElementById("selectSourceLang");
@@ -366,7 +366,7 @@ var UserPreferences = {
         return prefs;
     },
 
-    restore: function(prefs) {
+    restore: function (prefs) {
         var sel = document.getElementById("selectModel");
         if (sel) sel.value = prefs.model || this.defaults.model;
         var sChars = document.getElementById("sliderMaxChars");
@@ -379,7 +379,7 @@ var UserPreferences = {
         var lblGap = document.getElementById("lblGapFramesVal");
         if (sGap) { sGap.value = prefs.gapFrames; if (lblGap) lblGap.innerText = prefs.gapFrames + " frames"; }
         var radios = document.querySelectorAll('input[name="lineMode"]');
-        radios.forEach(function(r) { r.checked = (r.value === (prefs.lineMode || "double")); });
+        radios.forEach(function (r) { r.checked = (r.value === (prefs.lineMode || "double")); });
         var chkFill = document.getElementById("chkRemoveFillers");
         if (chkFill) chkFill.checked = prefs.removeFillers !== false;
         if (window.SourceLangSelect) {
@@ -417,7 +417,7 @@ var UserPreferences = {
         updateStylizeSummary();
     },
 
-    autoSave: function() {
+    autoSave: function () {
         var self = this;
         this.save(this.gather());
         updateStylizeSummary();
@@ -428,33 +428,33 @@ function updateStylizeSummary() {
     var summaryEl = document.getElementById("stylizeSummary");
     if (!summaryEl) return;
     var prefs = UserPreferences.gather();
-    
+
     var pMap = { "bottom": "Bottom", "center": "Center", "top": "Top" };
     var alMap = { "center": "Center", "left": "Left", "right": "Right" };
     var wStr = prefs.fontWeight === "bold" ? "Bold" : "Regular";
-    
+
     var txt = "Font: " + (prefs.fontFamily || "Arial") + " (" + wStr + ")" +
-              " | Size: " + (prefs.fontSize || 24) + "px" +
-              " | Align: " + (alMap[prefs.align] || "Center") +
-              " | Pos: " + (pMap[prefs.position] || "Bottom");
+        " | Size: " + (prefs.fontSize || 24) + "px" +
+        " | Align: " + (alMap[prefs.align] || "Center") +
+        " | Pos: " + (pMap[prefs.position] || "Bottom");
     summaryEl.innerText = txt;
 }
 
 // Main Application Panel Controller
-document.addEventListener("DOMContentLoaded", function() {
+document.addEventListener("DOMContentLoaded", function () {
     // 0. Initialize Searchable Comboboxes for Languages
-    window.SourceLangSelect = SearchableSelect.init("containerSourceLang", WHISPER_LANGUAGES_SOURCE, function() {
+    window.SourceLangSelect = SearchableSelect.init("containerSourceLang", WHISPER_LANGUAGES_SOURCE, function () {
         UserPreferences.autoSave();
     });
 
-    window.TargetLangSelect = SearchableSelect.init("containerTargetLang", WHISPER_LANGUAGES_TARGET, function() {
+    window.TargetLangSelect = SearchableSelect.init("containerTargetLang", WHISPER_LANGUAGES_TARGET, function () {
         UserPreferences.autoSave();
     });
 
     // 1. Tab Navigation Logic
     var tabs = document.querySelectorAll(".tab-btn");
-    tabs.forEach(function(tab) {
-        tab.addEventListener("click", function() {
+    tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
             tabs.forEach(t => t.classList.remove("active"));
             document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
 
@@ -472,7 +472,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var sChars = document.getElementById("sliderMaxChars");
     var lblChars = document.getElementById("lblMaxCharsVal");
     if (sChars && lblChars) {
-        sChars.addEventListener("input", function() {
+        sChars.addEventListener("input", function () {
             lblChars.innerText = sChars.value;
             UserPreferences.autoSave();
         });
@@ -481,7 +481,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var sDur = document.getElementById("sliderMaxDur");
     var lblDur = document.getElementById("lblMaxDurVal");
     if (sDur && lblDur) {
-        sDur.addEventListener("input", function() {
+        sDur.addEventListener("input", function () {
             lblDur.innerText = (parseFloat(sDur.value) / 10.0).toFixed(1) + "s";
             UserPreferences.autoSave();
         });
@@ -490,7 +490,7 @@ document.addEventListener("DOMContentLoaded", function() {
     var sGap = document.getElementById("sliderGapFrames");
     var lblGap = document.getElementById("lblGapFramesVal");
     if (sGap && lblGap) {
-        sGap.addEventListener("input", function() {
+        sGap.addEventListener("input", function () {
             lblGap.innerText = sGap.value + " frames";
             UserPreferences.autoSave();
         });
@@ -499,7 +499,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // Reset Buttons for Sliders (also auto-save)
     var rChars = document.getElementById("resetMaxChars");
     if (rChars && sChars && lblChars) {
-        rChars.addEventListener("click", function() {
+        rChars.addEventListener("click", function () {
             sChars.value = 37;
             lblChars.innerText = "37";
             UserPreferences.autoSave();
@@ -508,7 +508,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var rDur = document.getElementById("resetMaxDur");
     if (rDur && sDur && lblDur) {
-        rDur.addEventListener("click", function() {
+        rDur.addEventListener("click", function () {
             sDur.value = 30;
             lblDur.innerText = "3.0s";
             UserPreferences.autoSave();
@@ -517,7 +517,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     var rGap = document.getElementById("resetGapFrames");
     if (rGap && sGap && lblGap) {
-        rGap.addEventListener("click", function() {
+        rGap.addEventListener("click", function () {
             sGap.value = 0;
             lblGap.innerText = "0 frames";
             UserPreferences.autoSave();
@@ -526,13 +526,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Auto-save on model, radio, and checkbox changes
     var selectModel = document.getElementById("selectModel");
-    if (selectModel) selectModel.addEventListener("change", function() { UserPreferences.autoSave(); });
+    if (selectModel) selectModel.addEventListener("change", function () { UserPreferences.autoSave(); });
 
     // Stylize controls change listeners
     var sFontSize = document.getElementById("sliderStylizeFontSize");
     var lblFontSize = document.getElementById("lblStylizeFontSizeVal");
     if (sFontSize && lblFontSize) {
-        sFontSize.addEventListener("input", function() {
+        sFontSize.addEventListener("input", function () {
             lblFontSize.innerText = sFontSize.value + "px";
             UserPreferences.autoSave();
         });
@@ -541,23 +541,23 @@ document.addEventListener("DOMContentLoaded", function() {
     var stylizeControlIds = [
         "selectFontFamily", "selectFontWeight", "selectPosition", "selectAlign", "colorText"
     ];
-    stylizeControlIds.forEach(function(id) {
+    stylizeControlIds.forEach(function (id) {
         var el = document.getElementById(id);
         if (el) {
-            el.addEventListener("change", function() { UserPreferences.autoSave(); });
+            el.addEventListener("change", function () { UserPreferences.autoSave(); });
             if (el.tagName === "INPUT" && el.type === "color") {
-                el.addEventListener("input", function() { UserPreferences.autoSave(); });
+                el.addEventListener("input", function () { UserPreferences.autoSave(); });
             }
         }
     });
 
     var radios = document.querySelectorAll('input[name="lineMode"]');
-    radios.forEach(function(r) { r.addEventListener("change", function() { UserPreferences.autoSave(); }); });
+    radios.forEach(function (r) { r.addEventListener("change", function () { UserPreferences.autoSave(); }); });
 
     var chkIds = ["chkRemoveFillers", "chkVersioning"];
-    chkIds.forEach(function(id) {
+    chkIds.forEach(function (id) {
         var el = document.getElementById(id);
-        if (el) el.addEventListener("change", function() { UserPreferences.autoSave(); });
+        if (el) el.addEventListener("change", function () { UserPreferences.autoSave(); });
     });
 
     // 4. Initialize Sub-Managers
@@ -573,32 +573,32 @@ document.addEventListener("DOMContentLoaded", function() {
     var btnModalClose = document.getElementById("btnModalClose");
 
     if (btnApplyStylized) {
-        btnApplyStylized.addEventListener("click", function() {
+        btnApplyStylized.addEventListener("click", function () {
             applyStylizedCaptionsFromTab();
         });
     }
 
     if (btnTranscribe) {
-        btnTranscribe.addEventListener("click", function() {
+        btnTranscribe.addEventListener("click", function () {
             runTranscribeWorkflow();
         });
     }
 
     if (btnApplyEdits) {
-        btnApplyEdits.addEventListener("click", function() {
+        btnApplyEdits.addEventListener("click", function () {
             console.log("[CaptionGeneratorPro] #btnApplyEdits clicked");
             importSubtitlesToSequence();
         });
     }
 
     if (btnExportSRT) {
-        btnExportSRT.addEventListener("click", function() {
+        btnExportSRT.addEventListener("click", function () {
             exportSRTFile();
         });
     }
 
     if (btnModalCancel) {
-        btnModalCancel.addEventListener("click", function() {
+        btnModalCancel.addEventListener("click", function () {
             DependencyInstaller.cancelDownload();
             document.getElementById("statusLog").innerText = "Download cancelled by user.";
             btnModalCancel.style.display = "none";
@@ -607,13 +607,13 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     if (btnModalClose) {
-        btnModalClose.addEventListener("click", function() {
+        btnModalClose.addEventListener("click", function () {
             document.getElementById("installerModal").style.display = "none";
         });
     }
 
     // 6. Silent background dependency check (populates installed model dropdown)
-    DependencyInstaller.checkStatus(function(status) {
+    DependencyInstaller.checkStatus(function (status) {
         if (status && status.installed_models) {
             updateModelDropdown(status.installed_models);
             // Re-apply saved model selection after dropdown is populated
@@ -641,7 +641,7 @@ function updateModelDropdown(installedModels) {
 
     select.innerHTML = "";
 
-    ALL_MODELS_ORDER.forEach(function(m) {
+    ALL_MODELS_ORDER.forEach(function (m) {
         var opt = document.createElement("option");
         opt.value = m.key;
         var isInstalled = installedModels.indexOf(m.key) !== -1;
@@ -681,7 +681,7 @@ function showInstallerModalForModel(modelKey) {
     closeBtn.style.display = "none";
 
     DependencyInstaller.installModel(modelKey,
-        function(percent, msg) {
+        function (percent, msg) {
             fill.style.width = percent + "%";
 
             if (msg && msg.indexOf(" | Speed:") !== -1) {
@@ -696,7 +696,7 @@ function showInstallerModalForModel(modelKey) {
                 if (statusMetrics) statusMetrics.style.display = "none";
             }
         },
-        function(err, res) {
+        function (err, res) {
             cancelBtn.style.display = "none";
             closeBtn.style.display = "inline-block";
             if (err) {
@@ -706,7 +706,7 @@ function showInstallerModalForModel(modelKey) {
                 statusLog.innerText = "Model installed successfully!";
                 if (statusMetrics) statusMetrics.style.display = "none";
                 fill.style.width = "100%";
-                DependencyInstaller.checkStatus(function(status) {
+                DependencyInstaller.checkStatus(function (status) {
                     if (status && status.installed_models) {
                         updateModelDropdown(status.installed_models);
                     }
@@ -728,7 +728,7 @@ function ensureLicensedAction(actionName, callback) {
         return;
     }
 
-    LicenseManager.validate(function(valid, message) {
+    LicenseManager.validate(function (valid, message) {
         if (valid) {
             callback();
         } else {
@@ -740,7 +740,7 @@ function ensureLicensedAction(actionName, callback) {
 }
 
 function runTranscribeWorkflow() {
-    ensureLicensedAction("transcribe", function() {
+    ensureLicensedAction("transcribe", function () {
         var btn = document.getElementById("btnTranscribe");
         if (!btn || btn.disabled) return;
 
@@ -748,26 +748,28 @@ function runTranscribeWorkflow() {
         btn.disabled = true;
         btn.innerText = "Processing...";
 
-        var proceedWithAudioPath = function(audioPath, exportStart, projectDetails) {
+        var proceedWithAudioPath = function (audioPath, exportStart, projectDetails) {
             btn.innerText = "Transcribing Speech AI...";
-            runPythonBackend(audioPath, projectDetails, function(backendRes) {
+            runPythonBackend(audioPath, projectDetails, function (backendRes) {
                 if (!backendRes || !backendRes.success) {
                     btn.disabled = false;
                     btn.innerText = originalText;
                     var rawErr = (backendRes && backendRes.error) ? backendRes.error : "Unknown backend engine error";
                     console.error("Transcription Engine Technical Log:", rawErr);
+                    if (backendRes && backendRes.stderr) console.error("Backend Stderr:", backendRes.stderr);
+                    if (backendRes && backendRes.stdout) console.error("Backend Stdout:", backendRes.stdout);
 
-                    if (rawErr.toLowerCase().indexOf("model") !== -1 || rawErr.toLowerCase().indexOf("not found") !== -1) {
-                        showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.");
+                    if (rawErr.toLowerCase().indexOf("model") !== -1 && rawErr.toLowerCase().indexOf("not found") !== -1) {
+                        showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.\n\nTechnical log:\n" + rawErr);
                     } else {
-                        showAlertModal("Transcription Notice", "Transcription failed. Please try again or choose a different model.");
+                        showAlertModal("Transcription Error", "Transcription failed.\n\nTechnical details:\n" + rawErr);
                     }
                     return;
                 }
 
                 btn.disabled = false;
                 btn.innerText = "Done!";
-                setTimeout(function() {
+                setTimeout(function () {
                     btn.innerText = originalText;
                 }, 1800);
 
@@ -777,13 +779,13 @@ function runTranscribeWorkflow() {
                 var finalWords = backendRes.words || [];
 
                 if (offset > 0) {
-                    finalCaptions = finalCaptions.map(function(c) {
+                    finalCaptions = finalCaptions.map(function (c) {
                         return Object.assign({}, c, {
                             start: Math.round((c.start + offset) * 1000) / 1000,
                             end: Math.round((c.end + offset) * 1000) / 1000
                         });
                     });
-                    finalWords = finalWords.map(function(w) {
+                    finalWords = finalWords.map(function (w) {
                         return Object.assign({}, w, {
                             start: Math.round((w.start + offset) * 1000) / 1000,
                             end: Math.round((w.end + offset) * 1000) / 1000
@@ -804,10 +806,10 @@ function runTranscribeWorkflow() {
             });
         };
 
-        ExtendScriptBridge.getProjectDetails(function(projectDetails) {
+        ExtendScriptBridge.getProjectDetails(function (projectDetails) {
             var tempAudioPath = getTempAudioPath();
 
-            ExtendScriptBridge.exportAudio(tempAudioPath, function(exportRes) {
+            ExtendScriptBridge.exportAudio(tempAudioPath, function (exportRes) {
                 if (!exportRes || !exportRes.success) {
                     btn.disabled = false;
                     btn.innerText = originalText;
@@ -831,7 +833,7 @@ function runTranscribeWorkflow() {
 function runPythonBackend(audioPath, projectDetails, callback) {
     if (typeof require === "undefined") {
         // Preview mode mock response
-        setTimeout(function() {
+        setTimeout(function () {
             callback({
                 success: true,
                 files: { srt: "mock.srt", json: "mock.json" },
@@ -885,29 +887,37 @@ function runPythonBackend(audioPath, projectDetails, callback) {
 
     var proc = cp.spawn(pythonExe, args, { cwd: baseDir });
     var stdoutData = "";
+    var stderrData = "";
 
-    proc.stdout.on("data", function(data) {
+    proc.stdout.on("data", function (data) {
         stdoutData += data.toString();
     });
 
-    proc.stderr.on("data", function(data) {
-        console.warn("Backend log:", data.toString());
+    proc.stderr.on("data", function (data) {
+        var str = data.toString();
+        stderrData += str;
+        console.warn("Backend log:", str);
     });
 
-    proc.on("close", function(code) {
-        if (code === 0) {
-            try {
-                var jsonMatch = stdoutData.match(/---RESULT_JSON_START---\s*([\s\S]*?)\s*---RESULT_JSON_END---/);
-                if (jsonMatch && jsonMatch[1]) {
-                    var parsed = JSON.parse(jsonMatch[1]);
-                    callback(parsed);
-                    return;
-                }
-            } catch(e) {
-                console.error("JSON parse error:", e);
+    proc.on("close", function (code) {
+        var parsed = null;
+        try {
+            var jsonMatch = stdoutData.match(/---RESULT_JSON_START---\s*([\s\S]*?)\s*---RESULT_JSON_END---/);
+            if (jsonMatch && jsonMatch[1]) {
+                parsed = JSON.parse(jsonMatch[1]);
             }
+        } catch (e) {
+            console.error("JSON parse error:", e);
         }
-        callback({ success: false });
+
+        if (code === 0 && parsed && parsed.success) {
+            callback(parsed);
+            return;
+        }
+
+        var errDetails = (parsed && parsed.error) ? parsed.error : (stderrData.trim() || stdoutData.trim() || ("Engine process exited with code " + code));
+        console.error("Backend Technical Error Details:", errDetails);
+        callback({ success: false, error: errDetails, stdout: stdoutData, stderr: stderrData });
     });
 }
 
@@ -924,7 +934,7 @@ function importSubtitlesToSequence() {
         return;
     }
 
-    ensureLicensedAction("import", function() {
+    ensureLicensedAction("import", function () {
         var btn = document.getElementById("btnApplyEdits");
         var originalText = "Create Subtitles";
 
@@ -941,9 +951,9 @@ function importSubtitlesToSequence() {
             var path = require("path");
 
             var now = new Date();
-            var pad = function(n) { return n < 10 ? '0' + n : String(n); };
+            var pad = function (n) { return n < 10 ? '0' + n : String(n); };
             var timeStr = pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
-            
+
             var filename = "Sub_v" + importCounter + "_" + timeStr;
             importCounter++;
 
@@ -953,7 +963,7 @@ function importSubtitlesToSequence() {
 
             // Write updated SRT
             var srtContent = "";
-            captions.forEach(function(cap, i) {
+            captions.forEach(function (cap, i) {
                 srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
             });
             fs.writeFileSync(tempSrt, srtContent, "utf-8");
@@ -961,7 +971,7 @@ function importSubtitlesToSequence() {
             // Write updated JSON
             fs.writeFileSync(tempJson, JSON.stringify(captions, null, 4), "utf-8");
 
-            var handleResult = function(res) {
+            var handleResult = function (res) {
                 if (btn) btn.disabled = false;
                 if (!res || !res.success) {
                     if (btn) btn.innerText = originalText;
@@ -973,7 +983,7 @@ function importSubtitlesToSequence() {
 
                 if (btn) {
                     btn.innerText = "Done!";
-                    setTimeout(function() {
+                    setTimeout(function () {
                         btn.innerText = originalText;
                     }, 1800);
                 }
@@ -998,7 +1008,7 @@ function importSubtitlesToSequence() {
             if (btn) {
                 btn.disabled = false;
                 btn.innerText = "Done!";
-                setTimeout(function() {
+                setTimeout(function () {
                     btn.innerText = originalText;
                 }, 1800);
             }
@@ -1008,7 +1018,7 @@ function importSubtitlesToSequence() {
 }
 
 function exportSRTFile() {
-    ensureLicensedAction("export", function() {
+    ensureLicensedAction("export", function () {
         var captions = SubtitleEditor.captions;
         if (!captions || captions.length === 0) {
             showAlertModal("No Subtitles", "No subtitles available to export.");
@@ -1022,14 +1032,14 @@ function exportSRTFile() {
             var desktopPath = path.join(os.homedir(), "Desktop", "captions.srt");
 
             var srtContent = "";
-            captions.forEach(function(cap, i) {
+            captions.forEach(function (cap, i) {
                 srtContent += `${i + 1}\n${fmtTime(cap.start, "srt")} --> ${fmtTime(cap.end, "srt")}\n${cap.text}\n\n`;
             });
 
             try {
                 fs.writeFileSync(desktopPath, srtContent, "utf-8");
                 showAlertModal("SRT Exported", "Subtitle file (.srt) exported successfully to your Desktop:\n" + desktopPath.replace(/\\/g, "/"));
-            } catch(e) {
+            } catch (e) {
                 var tempPath = path.join(getTempFolder(), "captions.srt");
                 fs.writeFileSync(tempPath, srtContent, "utf-8");
                 showAlertModal("SRT Exported", "Subtitle file (.srt) exported to:\n" + tempPath.replace(/\\/g, "/"));
@@ -1056,7 +1066,7 @@ function showAlertModal(title, message) {
 
     var lines = (message || "").split("\n");
     var html = "";
-    lines.forEach(function(line) {
+    lines.forEach(function (line) {
         var trimmed = line.trim();
         if (trimmed.indexOf("/") !== -1 || trimmed.indexOf("\\") !== -1 || trimmed.indexOf(".srt") !== -1) {
             html += `<div style="background-color: var(--bg-dark); border: 1px solid var(--border-color); border-radius: 4px; padding: 6px 8px; font-family: monospace; font-size: 10px; color: var(--accent-blue); margin-top: 4px; word-break: break-all; user-select: all;">${line.replace(/\\/g, "/")}</div>`;
@@ -1068,7 +1078,7 @@ function showAlertModal(title, message) {
 
     modal.style.display = "flex";
 
-    var closeModal = function() {
+    var closeModal = function () {
         modal.style.display = "none";
     };
 
@@ -1105,7 +1115,7 @@ function fmtTime(seconds, fmt) {
 }
 
 function applyStylizedCaptionsFromTab() {
-    ensureLicensedAction("stylize", function() {
+    ensureLicensedAction("stylize", function () {
         var captions = SubtitleEditor.captions || [];
 
         if (!captions || captions.length === 0) {
@@ -1127,7 +1137,7 @@ function applyStylizedCaptionsFromTab() {
             align: prefs.align || "center"
         };
 
-        var finalItems = captions.map(function(c) {
+        var finalItems = captions.map(function (c) {
             return { text: c.text, start: c.start, end: c.end };
         });
 
@@ -1155,7 +1165,7 @@ function applyStylizedCaptionsFromTab() {
             }
             fs.writeFileSync(srtPath, srtContent, "utf-8");
 
-            ExtendScriptBridge.importStyledSubtitles(jsonPath, function(res) {
+            ExtendScriptBridge.importStyledSubtitles(jsonPath, function (res) {
                 if (btn) { btn.disabled = false; btn.innerText = originalText; }
                 if (!res || !res.success) {
                     var err = (res && res.error) ? res.error : "Failed to apply subtitles to sequence.";

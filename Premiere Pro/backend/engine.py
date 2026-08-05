@@ -65,80 +65,114 @@ class CaptionBackend:
             version += 1
 
     def synthesize_sequence_audio(self, manifest_path):
-        """Synthesizes active sequence audio from sequence manifest JSON using FFmpeg."""
+        """Synthesizes sequence timeline audio from manifest JSON using FFmpeg with single-clip fallback."""
         import subprocess
+        import shutil
+
+        if not os.path.exists(manifest_path):
+            raise RuntimeError(f"Sequence manifest file missing at: {manifest_path}")
+
         try:
             with open(manifest_path, 'r', encoding='utf-8') as f:
                 manifest = json.load(f)
         except Exception as err:
-            print(f"Error reading sequence manifest: {err}")
-            return manifest_path
+            raise RuntimeError(f"Failed to parse sequence manifest JSON ({err})")
 
         clips = manifest.get("clips", [])
         if not clips:
-            print("No clips found in sequence manifest.")
-            return manifest_path
+            raise RuntimeError("No audio/video clips found in active sequence range.")
 
-        duration = float(manifest.get("duration", 0.0))
         temp_dir = os.path.dirname(manifest_path)
         master_wav = os.path.join(temp_dir, "cgp_sequence_master.wav")
 
-        ffmpeg_bin = self.ffmpeg_exe if os.path.exists(self.ffmpeg_exe) else "ffmpeg"
+        # Resolve FFmpeg binary path
+        ffmpeg_bin = self.ffmpeg_exe
+        if not os.path.exists(ffmpeg_bin):
+            ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
 
-        # 1. Extract audio segment from each clip in manifest
+        # Check FFmpeg availability
+        try:
+            res = subprocess.run([ffmpeg_bin, "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if res.returncode != 0:
+                raise RuntimeError(f"FFmpeg check failed with code {res.returncode}")
+        except Exception as eFf:
+            raise RuntimeError(f"FFmpeg binary missing or unavailable at expected path '{ffmpeg_bin}'. ({eFf})")
+
+        # 1. Extract 16kHz mono PCM WAV segment from each clip
         seg_files = []
+        trim_errors = []
+
         for idx, clip in enumerate(clips):
-            m_path = clip["mediaPath"]
-            c_in = clip["mediaCutIn"]
-            dur = clip["cutDuration"]
+            m_path = clip.get("mediaPath", "")
+            if not m_path or not os.path.exists(m_path):
+                trim_errors.append(f"Clip {idx} media file missing: '{m_path}'")
+                continue
+
+            c_in = clip.get("mediaCutIn", 0.0)
+            dur = clip.get("cutDuration", 1.0)
             seg_path = os.path.join(temp_dir, f"cgp_seg_{idx}.wav")
 
+            # Extract 16kHz mono 16-bit PCM WAV segment (-vn -sn to ignore video/subtitle streams)
             cmd_trim = [
                 ffmpeg_bin, "-y",
                 "-ss", str(c_in),
                 "-t", str(dur),
                 "-i", m_path,
+                "-vn", "-sn",
                 "-ar", "16000",
                 "-ac", "1",
+                "-c:a", "pcm_s16le",
                 seg_path
             ]
             try:
-                subprocess.run(cmd_trim, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-                seg_files.append((seg_path, clip["relSeqStart"]))
+                rTrim = subprocess.run(cmd_trim, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if rTrim.returncode == 0 and os.path.exists(seg_path) and os.path.getsize(seg_path) > 500:
+                    seg_files.append((seg_path, clip.get("relSeqStart", 0.0)))
+                else:
+                    err_msg = rTrim.stderr.decode("utf-8", errors="ignore") if rTrim.stderr else "Unknown trim error"
+                    trim_errors.append(f"Clip {idx} extract failed: {err_msg[:200]}")
             except Exception as eTrim:
-                print(f"Segment extraction error for clip {idx}: {eTrim}")
+                trim_errors.append(f"Clip {idx} exception: {eTrim}")
 
+        # Safe Fallback: If multi-clip extractions failed completely
         if not seg_files:
-            print("No audio segments successfully extracted.")
-            return manifest_path
+            err_details = "; ".join(trim_errors) if trim_errors else "No valid audio tracks found on timeline clips."
+            raise RuntimeError(f"Failed to extract sequence timeline audio. ({err_details})")
 
+        # Single clip starting at 0.0s -> direct return
         if len(seg_files) == 1 and seg_files[0][1] == 0:
             return seg_files[0][0]
 
-        # 2. Blend segments into master_wav with ffmpeg filter_complex
+        # 2. Multi-clip sequence audio mix using FFmpeg filter_complex
         cmd_mix = [ffmpeg_bin, "-y"]
         filter_parts = []
         for idx, (s_path, rel_start) in enumerate(seg_files):
             cmd_mix.extend(["-i", s_path])
-            delay_ms = int(rel_start * 1000)
+            delay_ms = max(0, int(rel_start * 1000))
             filter_parts.append(f"[{idx}:a]adelay={delay_ms}|{delay_ms}[a{idx}]")
 
         inputs_str = "".join([f"[a{i}]" for i in range(len(seg_files))])
-        mix_filter = f"{';'.join(filter_parts)};{inputs_str}amix=inputs={len(seg_files)}:duration=longest:dropout_transition=0[out]"
+        mix_filter = f"{';'.join(filter_parts)};{inputs_str}amix=inputs={len(seg_files)}:duration=longest:dropout_transition=0,aformat=sample_fmts=s16:sample_rates=16000:channel_layouts=mono[out]"
 
         cmd_mix.extend([
             "-filter_complex", mix_filter,
             "-map", "[out]",
-            "-ar", "16000",
-            "-ac", "1",
             master_wav
         ])
 
         try:
-            subprocess.run(cmd_mix, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-            return master_wav
+            rMix = subprocess.run(cmd_mix, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if rMix.returncode == 0 and os.path.exists(master_wav) and os.path.getsize(master_wav) > 1000:
+                for s_path, _ in seg_files:
+                    try: os.remove(s_path)
+                    except Exception: pass
+                return master_wav
+            else:
+                mix_err = rMix.stderr.decode("utf-8", errors="ignore") if rMix.stderr else "Unknown mix error"
+                print(f"Multi-clip FFmpeg mix failed ({mix_err[:200]}), returning primary clip segment fallback...")
+                return seg_files[0][0]
         except Exception as eMix:
-            print(f"FFmpeg sequence mix failed ({eMix}), returning first segment...")
+            print(f"FFmpeg mix exception ({eMix}), returning primary clip segment fallback...")
             return seg_files[0][0]
 
     def transcribe_audio(self, audio_path, model_name="base", device="auto", language="auto", target_language="none", remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):

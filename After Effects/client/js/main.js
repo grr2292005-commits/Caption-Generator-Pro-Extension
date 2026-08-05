@@ -797,18 +797,20 @@ function runTranscribeWorkflow() {
                     btn.innerText = originalText;
                     var rawErr = (backendRes && backendRes.error) ? backendRes.error : "Unknown backend engine error";
                     console.error("Transcription Engine Technical Log:", rawErr);
+                    if (backendRes && backendRes.stderr) console.error("Backend Stderr:", backendRes.stderr);
+                    if (backendRes && backendRes.stdout) console.error("Backend Stdout:", backendRes.stdout);
 
-                    if (rawErr.toLowerCase().indexOf("model") !== -1 || rawErr.toLowerCase().indexOf("not found") !== -1) {
-                        showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.");
+                    if (rawErr.toLowerCase().indexOf("model") !== -1 && rawErr.toLowerCase().indexOf("not found") !== -1) {
+                        showAlertModal("Model Required", "Whisper model is missing. Please download it from the Settings tab.\n\nTechnical log:\n" + rawErr);
                     } else {
-                        showAlertModal("Transcription Notice", "Transcription failed. Please try again or choose a different model.");
+                        showAlertModal("Transcription Error", "Transcription failed.\n\nTechnical details:\n" + rawErr);
                     }
                     return;
                 }
 
                 btn.disabled = false;
                 btn.innerText = "Done!";
-                setTimeout(function() {
+                setTimeout(function () {
                     btn.innerText = originalText;
                 }, 1800);
 
@@ -818,13 +820,13 @@ function runTranscribeWorkflow() {
                 var finalWords = backendRes.words || [];
 
                 if (offset > 0) {
-                    finalCaptions = finalCaptions.map(function(c) {
+                    finalCaptions = finalCaptions.map(function (c) {
                         return Object.assign({}, c, {
                             start: Math.round((c.start + offset) * 1000) / 1000,
                             end: Math.round((c.end + offset) * 1000) / 1000
                         });
                     });
-                    finalWords = finalWords.map(function(w) {
+                    finalWords = finalWords.map(function (w) {
                         return Object.assign({}, w, {
                             start: Math.round((w.start + offset) * 1000) / 1000,
                             end: Math.round((w.end + offset) * 1000) / 1000
@@ -845,10 +847,10 @@ function runTranscribeWorkflow() {
             });
         };
 
-        ExtendScriptBridge.getProjectDetails(function(projectDetails) {
+        ExtendScriptBridge.getProjectDetails(function (projectDetails) {
             var tempAudioPath = getTempAudioPath();
 
-            ExtendScriptBridge.exportAudio(tempAudioPath, function(exportRes) {
+            ExtendScriptBridge.exportAudio(tempAudioPath, function (exportRes) {
                 if (!exportRes || !exportRes.success) {
                     btn.disabled = false;
                     btn.innerText = originalText;
@@ -914,7 +916,7 @@ function runPythonBackend(audioPath, projectDetails, callback) {
         "--language", sourceLang,
         "--target_language", targetLang,
         "--project_path", projectDetails.path || "",
-        "--project_name", projectDetails.name || "UntitledAEProject",
+        "--project_name", projectDetails.name || "UntitledProject",
         "--max_chars", maxChars.toString(),
         "--max_dur", maxDur.toString(),
         "--gap_frames", gapFrames.toString(),
@@ -926,29 +928,37 @@ function runPythonBackend(audioPath, projectDetails, callback) {
 
     var proc = cp.spawn(pythonExe, args, { cwd: baseDir });
     var stdoutData = "";
+    var stderrData = "";
 
-    proc.stdout.on("data", function(data) {
+    proc.stdout.on("data", function (data) {
         stdoutData += data.toString();
     });
 
-    proc.stderr.on("data", function(data) {
-        console.warn("Backend log:", data.toString());
+    proc.stderr.on("data", function (data) {
+        var str = data.toString();
+        stderrData += str;
+        console.warn("Backend log:", str);
     });
 
-    proc.on("close", function(code) {
-        if (code === 0) {
-            try {
-                var jsonMatch = stdoutData.match(/---RESULT_JSON_START---\s*([\s\S]*?)\s*---RESULT_JSON_END---/);
-                if (jsonMatch && jsonMatch[1]) {
-                    var parsed = JSON.parse(jsonMatch[1]);
-                    callback(parsed);
-                    return;
-                }
-            } catch(e) {
-                console.error("JSON parse error:", e);
+    proc.on("close", function (code) {
+        var parsed = null;
+        try {
+            var jsonMatch = stdoutData.match(/---RESULT_JSON_START---\s*([\s\S]*?)\s*---RESULT_JSON_END---/);
+            if (jsonMatch && jsonMatch[1]) {
+                parsed = JSON.parse(jsonMatch[1]);
             }
+        } catch (e) {
+            console.error("JSON parse error:", e);
         }
-        callback({ success: false });
+
+        if (code === 0 && parsed && parsed.success) {
+            callback(parsed);
+            return;
+        }
+
+        var errDetails = (parsed && parsed.error) ? parsed.error : (stderrData.trim() || stdoutData.trim() || ("Engine process exited with code " + code));
+        console.error("Backend Technical Error Details:", errDetails);
+        callback({ success: false, error: errDetails, stdout: stdoutData, stderr: stderrData });
     });
 }
 
