@@ -457,24 +457,24 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
             textLayer.property("Position").setValue([posX, posY]);
 
             // Apply Animations
-            var anim = style.animation || "none";
-            if (anim === "pop" || style.id === "hormozi") {
+            var anim = style.animation || "pop_in";
+            if (anim === "pop_in" || anim === "pop" || anim === "word_kinetic") {
                 var scaleProp = textLayer.property("Scale");
                 scaleProp.setValueAtTime(item.start, [0, 0]);
                 scaleProp.setValueAtTime(item.start + 0.08, [125, 125]);
                 scaleProp.setValueAtTime(item.start + 0.15, [100, 100]);
-            } else if (anim === "karaoke" || anim === "highlight" || style.id === "karaoke") {
+            } else if (anim === "karaoke_highlight" || anim === "karaoke" || anim === "highlight") {
                 var scaleK = textLayer.property("Scale");
                 scaleK.setValueAtTime(item.start, [100, 100]);
                 scaleK.setValueAtTime(item.start + 0.06, [118, 118]);
                 scaleK.setValueAtTime(item.start + 0.14, [100, 100]);
-            } else if (anim === "fade" || style.id === "clean_pro") {
+            } else if (anim === "clean_fade" || anim === "fade") {
                 var opacClean = textLayer.property("Opacity");
                 opacClean.setValueAtTime(item.start, 0);
                 opacClean.setValueAtTime(item.start + 0.15, 100);
                 opacClean.setValueAtTime(item.end - 0.15, 100);
                 opacClean.setValueAtTime(item.end, 0);
-            } else if (style.id === "podcast") {
+            } else if (anim === "lower_third_soft" || anim === "podcast") {
                 var opacPod = textLayer.property("Opacity");
                 opacPod.setValueAtTime(item.start, 0);
                 opacPod.setValueAtTime(item.start + 0.25, 100);
@@ -489,13 +489,21 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
 
         app.endUndoGroup();
 
-        var styleInfo = "Anim: " + (style.animation || "none") + ", Words: " + (style.wordsPerLayer || "full");
+        var styleInfo = "Preset: " + (style.animation || "pop_in") + ", Words: " + (style.wordsPerLayer || "full");
         return "OK|Created " + items.length + " styled text layers in active comp (" + styleInfo + ")!|Count:" + items.length;
 
     } catch (e) {
         return "ERR|" + e.toString();
     }
 };
+
+function resetPropKeyframes(prop) {
+    if (prop && prop.numKeys > 0) {
+        for (var k = prop.numKeys; k >= 1; k--) {
+            try { prop.removeKey(k); } catch(eK) {}
+        }
+    }
+}
 
 $._AE_CGP_.applyPresetToLayers = function(jsonPath) {
     try {
@@ -552,7 +560,8 @@ $._AE_CGP_.applyPresetToLayers = function(jsonPath) {
         }
 
         if (targetLayers.length === 0) {
-            return "ERR|No matching text layers found for targeting mode: " + targetingMode;
+            var targetDesc = targetingMode === "selected" ? "selected layers" : (targetingMode === "cgp_all" ? "CGP caption layers" : "all text layers");
+            return "ERR|No text layers found for: " + targetDesc + ". Please select a text layer first.";
         }
 
         app.beginUndoGroup("CGP Apply Preset To Layers");
@@ -609,33 +618,34 @@ $._AE_CGP_.applyPresetToLayers = function(jsonPath) {
             textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
             textLayer.property("Position").setValue([posX, posY]);
 
+            // Clear old keyframes on modified properties
+            var scaleProp = textLayer.property("Scale");
+            var opacProp = textLayer.property("Opacity");
+            resetPropKeyframes(scaleProp);
+            resetPropKeyframes(opacProp);
+
             // Apply keyframe animation preset
             if (preset === "pop_in" || preset === "word_kinetic") {
-                var scaleProp = textLayer.property("Scale");
                 scaleProp.setValueAtTime(start, [0, 0]);
                 scaleProp.setValueAtTime(start + 0.08, [125, 125]);
                 scaleProp.setValueAtTime(start + 0.15, [100, 100]);
             } else if (preset === "karaoke_highlight") {
-                var scaleK = textLayer.property("Scale");
-                scaleK.setValueAtTime(start, [100, 100]);
-                scaleK.setValueAtTime(start + 0.06, [118, 118]);
-                scaleK.setValueAtTime(start + 0.14, [100, 100]);
+                scaleProp.setValueAtTime(start, [100, 100]);
+                scaleProp.setValueAtTime(start + 0.06, [118, 118]);
+                scaleProp.setValueAtTime(start + 0.14, [100, 100]);
             } else if (preset === "clean_fade") {
-                var opacClean = textLayer.property("Opacity");
-                opacClean.setValueAtTime(start, 0);
-                opacClean.setValueAtTime(start + 0.15, 100);
-                opacClean.setValueAtTime(end - 0.15, 100);
-                opacClean.setValueAtTime(end, 0);
+                opacProp.setValueAtTime(start, 0);
+                opacProp.setValueAtTime(start + 0.15, 100);
+                opacProp.setValueAtTime(end - 0.15, 100);
+                opacProp.setValueAtTime(end, 0);
             } else if (preset === "lower_third_soft") {
-                var opacPod = textLayer.property("Opacity");
-                opacPod.setValueAtTime(start, 0);
-                opacPod.setValueAtTime(start + 0.25, 100);
-                opacPod.setValueAtTime(end - 0.25, 100);
-                opacPod.setValueAtTime(end, 0);
+                opacProp.setValueAtTime(start, 0);
+                opacProp.setValueAtTime(start + 0.25, 100);
+                opacProp.setValueAtTime(end - 0.25, 100);
+                opacProp.setValueAtTime(end, 0);
 
-                var scalePod = textLayer.property("Scale");
-                scalePod.setValueAtTime(start, [94, 94]);
-                scalePod.setValueAtTime(start + 0.3, [100, 100]);
+                scaleProp.setValueAtTime(start, [94, 94]);
+                scaleProp.setValueAtTime(start + 0.3, [100, 100]);
             }
         }
 

@@ -559,8 +559,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     var stylizeControlIds = [
-        "selectWordsPerLayer", "selectAnimation", "selectPosition", "selectAlign",
-        "colorText", "colorHighlight", "chkStroke", "colorStroke", "selectApplyScope"
+        "selectWordsPerLayer", "selectAEPreset", "selectAETargeting", "selectPosition", "selectAlign",
+        "colorText", "colorHighlight", "chkStroke", "colorStroke"
     ];
     stylizeControlIds.forEach(function(id) {
         var el = document.getElementById(id);
@@ -1196,7 +1196,7 @@ function applyStylizedCaptionsFromTab() {
         var prefs = UserPreferences.gather();
         var styleConfig = {
             wordsPerLayer: prefs.wordsPerLayer || "full",
-            animation: prefs.animation || "none",
+            animation: prefs.aePreset || "pop_in",
             position: prefs.position || "bottom",
             align: prefs.align || "center",
             fontSize: parseInt(prefs.fontSize, 10) || 24,
