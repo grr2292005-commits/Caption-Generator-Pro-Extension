@@ -72,15 +72,28 @@ class CaptionBackend:
         if not os.path.exists(manifest_path):
             raise RuntimeError(f"Comp manifest file missing at: {manifest_path}")
 
+        file_size = os.path.getsize(manifest_path)
+        if file_size == 0:
+            raise RuntimeError(f"Comp manifest file at '{manifest_path}' is empty (0 bytes).")
+
         try:
-            with open(manifest_path, 'r', encoding='utf-8') as f:
-                manifest = json.load(f)
+            with open(manifest_path, 'r', encoding='utf-8-sig') as f:
+                content = f.read().strip()
+        except Exception as eRead:
+            raise RuntimeError(f"Failed to read comp manifest file at '{manifest_path}' (size: {file_size} bytes): {eRead}")
+
+        if not content:
+            raise RuntimeError(f"Comp manifest file at '{manifest_path}' is empty after trimming whitespace (size: {file_size} bytes).")
+
+        try:
+            manifest = json.loads(content)
         except Exception as err:
-            raise RuntimeError(f"Failed to parse comp manifest JSON ({err})")
+            preview = content[:120].replace('\n', ' ').replace('\r', '')
+            raise RuntimeError(f"Failed to parse comp manifest JSON at '{manifest_path}' (size: {file_size} bytes): {err}. Content preview: '{preview}'")
 
         clips = manifest.get("clips", [])
         if not clips:
-            raise RuntimeError("No footage or audio layers found in active composition range.")
+            raise RuntimeError("No footage or audio layers found in comp manifest JSON.")
 
         temp_dir = os.path.dirname(manifest_path)
         master_wav = os.path.join(temp_dir, "cgp_comp_master.wav")

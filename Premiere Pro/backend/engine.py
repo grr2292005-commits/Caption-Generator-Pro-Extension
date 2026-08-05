@@ -72,15 +72,28 @@ class CaptionBackend:
         if not os.path.exists(manifest_path):
             raise RuntimeError(f"Sequence manifest file missing at: {manifest_path}")
 
+        file_size = os.path.getsize(manifest_path)
+        if file_size == 0:
+            raise RuntimeError(f"Sequence manifest file at '{manifest_path}' is empty (0 bytes).")
+
         try:
-            with open(manifest_path, 'r', encoding='utf-8') as f:
-                manifest = json.load(f)
+            with open(manifest_path, 'r', encoding='utf-8-sig') as f:
+                content = f.read().strip()
+        except Exception as eRead:
+            raise RuntimeError(f"Failed to read sequence manifest file at '{manifest_path}' (size: {file_size} bytes): {eRead}")
+
+        if not content:
+            raise RuntimeError(f"Sequence manifest file at '{manifest_path}' is empty after trimming whitespace (size: {file_size} bytes).")
+
+        try:
+            manifest = json.loads(content)
         except Exception as err:
-            raise RuntimeError(f"Failed to parse sequence manifest JSON ({err})")
+            preview = content[:120].replace('\n', ' ').replace('\r', '')
+            raise RuntimeError(f"Failed to parse sequence manifest JSON at '{manifest_path}' (size: {file_size} bytes): {err}. Content preview: '{preview}'")
 
         clips = manifest.get("clips", [])
         if not clips:
-            raise RuntimeError("No audio/video clips found in active sequence range.")
+            raise RuntimeError("No audio/video clips found in sequence manifest JSON.")
 
         temp_dir = os.path.dirname(manifest_path)
         master_wav = os.path.join(temp_dir, "cgp_sequence_master.wav")

@@ -136,7 +136,7 @@ $._PPP_.exportAudio = function(targetWavPath) {
         };
 
         function stringifyJson(obj) {
-            if (typeof obj === "string") return '"' + obj.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+            if (typeof obj === "string") return '"' + obj.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n").replace(/\r/g, "\\r") + '"';
             if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
             if (obj instanceof Array) {
                 var arrStr = [];
@@ -155,11 +155,20 @@ $._PPP_.exportAudio = function(targetWavPath) {
             return "null";
         }
 
+        manifestFile.encoding = "UTF-8";
         manifestFile.open("w");
-        manifestFile.write(stringifyJson(manifestData));
+        var jsonText = stringifyJson(manifestData);
+        manifestFile.write(jsonText);
         manifestFile.close();
 
-        return "OK|" + manifestPath + "|" + Math.round(exportStart * 1000) / 1000;
+        // Verify write on disk
+        manifestFile = new File(manifestFile.fsName);
+        if (!manifestFile.exists || manifestFile.length === 0) {
+            return "ERR|Failed to write comp manifest JSON to disk. File size is 0 bytes.";
+        }
+
+        var finalPath = manifestFile.fsName.replace(/\\/g, "/");
+        return "OK|" + finalPath + "|" + Math.round(exportStart * 1000) / 1000;
     } catch (e) {
         return "ERR|" + e.toString();
     }

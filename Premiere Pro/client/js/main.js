@@ -824,6 +824,25 @@ function runTranscribeWorkflow() {
                     return;
                 }
 
+                console.log("[CGP] Manifest Path received from host:", exportRes.audioPath);
+                if (typeof require !== "undefined") {
+                    var fs = require("fs");
+                    if (fs.existsSync(exportRes.audioPath)) {
+                        var stat = fs.statSync(exportRes.audioPath);
+                        console.log("[CGP] Manifest file size:", stat.size, "bytes");
+                        if (stat.size > 0) {
+                            try {
+                                var sample = fs.readFileSync(exportRes.audioPath, "utf-8").substring(0, 100);
+                                console.log("[CGP] Manifest content preview:", sample);
+                            } catch(eRead) {}
+                        } else {
+                            console.error("[CGP] Manifest file is 0 bytes at:", exportRes.audioPath);
+                        }
+                    } else {
+                        console.error("[CGP] Manifest file missing at:", exportRes.audioPath);
+                    }
+                }
+
                 proceedWithAudioPath(exportRes.audioPath, exportRes.exportStart || 0, projectDetails);
             });
         });
