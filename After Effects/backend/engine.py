@@ -64,7 +64,89 @@ class CaptionBackend:
                 return ver_dir
             version += 1
 
+    def synthesize_sequence_audio(self, manifest_path):
+        """Synthesizes active composition timeline audio from sequence manifest JSON using FFmpeg."""
+        import subprocess
+        try:
+            with open(manifest_path, 'r', encoding='utf-8') as f:
+                manifest = json.load(f)
+        except Exception as err:
+            print(f"Error reading comp manifest: {err}")
+            return manifest_path
+
+        clips = manifest.get("clips", [])
+        if not clips:
+            print("No clips found in comp manifest.")
+            return manifest_path
+
+        duration = float(manifest.get("duration", 0.0))
+        temp_dir = os.path.dirname(manifest_path)
+        master_wav = os.path.join(temp_dir, "cgp_comp_master.wav")
+
+        ffmpeg_bin = self.ffmpeg_exe if os.path.exists(self.ffmpeg_exe) else "ffmpeg"
+
+        # 1. Extract audio segment from each layer clip in manifest
+        seg_files = []
+        for idx, clip in enumerate(clips):
+            m_path = clip["mediaPath"]
+            c_in = clip["mediaCutIn"]
+            dur = clip["cutDuration"]
+            seg_path = os.path.join(temp_dir, f"cgp_ae_seg_{idx}.wav")
+
+            cmd_trim = [
+                ffmpeg_bin, "-y",
+                "-ss", str(c_in),
+                "-t", str(dur),
+                "-i", m_path,
+                "-ar", "16000",
+                "-ac", "1",
+                seg_path
+            ]
+            try:
+                subprocess.run(cmd_trim, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+                seg_files.append((seg_path, clip["relSeqStart"]))
+            except Exception as eTrim:
+                print(f"Segment extraction error for layer {idx}: {eTrim}")
+
+        if not seg_files:
+            print("No audio segments successfully extracted.")
+            return manifest_path
+
+        if len(seg_files) == 1 and seg_files[0][1] == 0:
+            return seg_files[0][0]
+
+        # 2. Blend segments into master_wav with ffmpeg filter_complex
+        cmd_mix = [ffmpeg_bin, "-y"]
+        filter_parts = []
+        for idx, (s_path, rel_start) in enumerate(seg_files):
+            cmd_mix.extend(["-i", s_path])
+            delay_ms = int(rel_start * 1000)
+            filter_parts.append(f"[{idx}:a]adelay={delay_ms}|{delay_ms}[a{idx}]")
+
+        inputs_str = "".join([f"[a{i}]" for i in range(len(seg_files))])
+        mix_filter = f"{';'.join(filter_parts)};{inputs_str}amix=inputs={len(seg_files)}:duration=longest:dropout_transition=0[out]"
+
+        cmd_mix.extend([
+            "-filter_complex", mix_filter,
+            "-map", "[out]",
+            "-ar", "16000",
+            "-ac", "1",
+            master_wav
+        ])
+
+        try:
+            subprocess.run(cmd_mix, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            return master_wav
+        except Exception as eMix:
+            print(f"FFmpeg comp mix failed ({eMix}), returning first segment...")
+            return seg_files[0][0]
+
     def transcribe_audio(self, audio_path, model_name="base", device="auto", language="auto", target_language="none", remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):
+        # Synthesize comp timeline audio if comp manifest JSON is provided
+        if audio_path.endswith(".json") and os.path.exists(audio_path):
+            print(f"Synthesizing composition timeline audio from manifest '{audio_path}'...")
+            audio_path = self.synthesize_sequence_audio(audio_path)
+
         # Safe device selection with CUDA check
         try:
             import torch

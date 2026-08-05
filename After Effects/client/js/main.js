@@ -789,7 +789,7 @@ function runTranscribeWorkflow() {
         btn.disabled = true;
         btn.innerText = "Processing...";
 
-        var proceedWithAudioPath = function(audioPath, projectDetails) {
+        var proceedWithAudioPath = function(audioPath, exportStart, projectDetails) {
             btn.innerText = "Transcribing Speech AI...";
             runPythonBackend(audioPath, projectDetails, function(backendRes) {
                 if (!backendRes || !backendRes.success) {
@@ -812,8 +812,28 @@ function runTranscribeWorkflow() {
                     btn.innerText = originalText;
                 }, 1800);
 
+                // Apply composition export start offset so timestamps match exact comp timeline time
+                var offset = parseFloat(exportStart) || 0;
+                var finalCaptions = backendRes.captions || [];
+                var finalWords = backendRes.words || [];
+
+                if (offset > 0) {
+                    finalCaptions = finalCaptions.map(function(c) {
+                        return Object.assign({}, c, {
+                            start: Math.round((c.start + offset) * 1000) / 1000,
+                            end: Math.round((c.end + offset) * 1000) / 1000
+                        });
+                    });
+                    finalWords = finalWords.map(function(w) {
+                        return Object.assign({}, w, {
+                            start: Math.round((w.start + offset) * 1000) / 1000,
+                            end: Math.round((w.end + offset) * 1000) / 1000
+                        });
+                    });
+                }
+
                 // Load Cues and Word Timestamps directly into Subtitle Editor for user review & editing
-                SubtitleEditor.loadCaptions(backendRes.captions, backendRes.words);
+                SubtitleEditor.loadCaptions(finalCaptions, finalWords);
 
                 if (backendRes.warning) {
                     showAlertModal("Translation Warning", backendRes.warning);
@@ -843,7 +863,7 @@ function runTranscribeWorkflow() {
                     return;
                 }
 
-                proceedWithAudioPath(exportRes.audioPath, projectDetails);
+                proceedWithAudioPath(exportRes.audioPath, exportRes.exportStart || 0, projectDetails);
             });
         });
     });

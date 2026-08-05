@@ -30,48 +30,136 @@ $._PPP_.getProjectDetails = function() {
     }
 };
 
-$._PPP_.exportAudio = function() {
+$._PPP_.exportAudio = function(targetWavPath) {
     try {
         if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
-            return "ERR|Could not read the active composition. Make sure a composition is open.";
+            return "ERR|Could not read the active composition. Make sure a composition is open in After Effects.";
         }
 
         var comp = app.project.activeItem;
-        var mediaPath = "";
 
-        // Scan composition layers for audio
+        // Determine export range: Work Area if set, else full comp duration
+        var exportStart = 0;
+        var exportEnd = comp.duration;
+
+        if (comp.workAreaDuration && comp.workAreaDuration > 0 && comp.workAreaDuration < comp.duration) {
+            exportStart = parseFloat(comp.workAreaStart) || 0;
+            exportEnd = exportStart + parseFloat(comp.workAreaDuration);
+        }
+
+        var clipsToProcess = [];
+        var minLayerIn = 999999;
+        var maxLayerOut = 0;
+
         for (var i = 1; i <= comp.numLayers; i++) {
             var layer = comp.layer(i);
-            if (layer && layer.hasAudio && layer.audioEnabled && layer.enabled) {
-                if (layer.source && layer.source.file) {
-                    var f = layer.source.file;
-                    if (f && f.exists) {
-                        mediaPath = f.fsName;
-                        break;
-                    }
+            if (!layer || !layer.enabled) continue;
+            
+            // Prioritize layers with source files (audio or video footage)
+            if (layer.source && layer.source.file) {
+                var f = layer.source.file;
+                if (!f || !f.exists) continue;
+
+                var lIn = parseFloat(layer.inPoint) || 0;
+                var lOut = parseFloat(layer.outPoint) || 0;
+                var lStart = parseFloat(layer.startTime) || 0;
+
+                if (lOut > lIn) {
+                    if (lIn < minLayerIn) minLayerIn = lIn;
+                    if (lOut > maxLayerOut) maxLayerOut = lOut;
+
+                    clipsToProcess.push({
+                        mediaPath: f.fsName.replace(/\\/g, "/"),
+                        clipStart: lIn,
+                        clipEnd: lOut,
+                        startTime: lStart,
+                        hasAudio: layer.hasAudio && layer.audioEnabled
+                    });
                 }
             }
         }
 
-        // Secondary scan: check any video layer with source file if no audio-only track was enabled
-        if (mediaPath === "") {
-            for (var j = 1; j <= comp.numLayers; j++) {
-                var vLayer = comp.layer(j);
-                if (vLayer && vLayer.enabled && vLayer.source && vLayer.source.file) {
-                    var vf = vLayer.source.file;
-                    if (vf && vf.exists) {
-                        mediaPath = vf.fsName;
-                        break;
-                    }
-                }
+        if (clipsToProcess.length === 0) {
+            return "ERR|No valid footage or audio layers found in active composition.";
+        }
+
+        // Filter audio layers if audio-enabled layers exist
+        var audioClips = [];
+        for (var a = 0; a < clipsToProcess.length; a++) {
+            if (clipsToProcess[a].hasAudio) audioClips.push(clipsToProcess[a]);
+        }
+        if (audioClips.length > 0) {
+            clipsToProcess = audioClips;
+        }
+
+        if (exportEnd <= exportStart) {
+            exportStart = minLayerIn < 999999 ? minLayerIn : 0;
+            exportEnd = maxLayerOut > 0 ? maxLayerOut : comp.duration;
+        }
+
+        var activeManifestClips = [];
+        for (var k = 0; k < clipsToProcess.length; k++) {
+            var item = clipsToProcess[k];
+            if (item.clipEnd > exportStart && item.clipStart < exportEnd) {
+                var effStart = Math.max(item.clipStart, exportStart);
+                var effEnd = Math.min(item.clipEnd, exportEnd);
+                var dur = effEnd - effStart;
+                var trimHead = effStart - item.clipStart;
+
+                // Source cut-in formula: (inPoint - startTime) + trimHead
+                var mediaCutIn = (item.clipStart - item.startTime) + trimHead;
+                var relSeqStart = effStart - exportStart;
+
+                activeManifestClips.push({
+                    mediaPath: item.mediaPath,
+                    mediaCutIn: Math.max(0, Math.round(mediaCutIn * 1000) / 1000),
+                    cutDuration: Math.round(dur * 1000) / 1000,
+                    relSeqStart: Math.round(relSeqStart * 1000) / 1000
+                });
             }
         }
 
-        if (mediaPath !== "") {
-            return "OK|" + mediaPath.replace(/\\/g, "/");
+        if (activeManifestClips.length === 0) {
+            return "ERR|No audio layers found within active comp work area.";
         }
 
-        return "ERR|No audio or video clip found on the timeline. Please add a clip first.";
+        var tempDir = Folder.temp.fsName.replace(/\\/g, "/");
+        var manifestPath = tempDir + "/cgp_ae_comp_manifest.json";
+        var manifestFile = new File(manifestPath);
+
+        var manifestData = {
+            sequenceName: comp.name || "Active Comp",
+            exportStart: Math.round(exportStart * 1000) / 1000,
+            exportEnd: Math.round(exportEnd * 1000) / 1000,
+            duration: Math.round((exportEnd - exportStart) * 1000) / 1000,
+            clips: activeManifestClips
+        };
+
+        function stringifyJson(obj) {
+            if (typeof obj === "string") return '"' + obj.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"';
+            if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
+            if (obj instanceof Array) {
+                var arrStr = [];
+                for (var a = 0; a < obj.length; a++) arrStr.push(stringifyJson(obj[a]));
+                return "[" + arrStr.join(",") + "]";
+            }
+            if (typeof obj === "object" && obj !== null) {
+                var objStr = [];
+                for (var key in obj) {
+                    if (obj.hasOwnProperty(key)) {
+                        objStr.push('"' + key + '":' + stringifyJson(obj[key]));
+                    }
+                }
+                return "{" + objStr.join(",") + "}";
+            }
+            return "null";
+        }
+
+        manifestFile.open("w");
+        manifestFile.write(stringifyJson(manifestData));
+        manifestFile.close();
+
+        return "OK|" + manifestPath + "|" + Math.round(exportStart * 1000) / 1000;
     } catch (e) {
         return "ERR|" + e.toString();
     }
