@@ -302,16 +302,12 @@ var UserPreferences = {
         targetLang: "none",
         versioning: true,
         hardware: "cuda",
-        wordsPerLayer: "full",
-        animation: "none",
-        position: "bottom",
-        align: "center",
+        fontFamily: "Arial",
+        fontWeight: "bold",
         fontSize: 24,
         textColor: "#FFFFFF",
-        highlightColor: "#FFD700",
-        enableStroke: true,
-        strokeColor: "#000000",
-        applyScope: "all"
+        position: "bottom",
+        align: "center"
     },
 
     load: function() {
@@ -353,27 +349,19 @@ var UserPreferences = {
         var selHw = document.getElementById("selectHardware");
         if (selHw) prefs.hardware = selHw.value;
 
-        // Stylize tab options
-        var sWpl = document.getElementById("selectWordsPerLayer");
-        if (sWpl) prefs.wordsPerLayer = sWpl.value;
-        var sAnim = document.getElementById("selectAnimation");
-        if (sAnim) prefs.animation = sAnim.value;
-        var sPos = document.getElementById("selectPosition");
-        if (sPos) prefs.position = sPos.value;
-        var sAlign = document.getElementById("selectAlign");
-        if (sAlign) prefs.align = sAlign.value;
+        // Premiere Stylize tab options
+        var sFont = document.getElementById("selectFontFamily");
+        if (sFont) prefs.fontFamily = sFont.value;
+        var sWeight = document.getElementById("selectFontWeight");
+        if (sWeight) prefs.fontWeight = sWeight.value;
         var sFSize = document.getElementById("sliderStylizeFontSize");
         if (sFSize) prefs.fontSize = parseInt(sFSize.value, 10);
         var cText = document.getElementById("colorText");
         if (cText) prefs.textColor = cText.value;
-        var cHl = document.getElementById("colorHighlight");
-        if (cHl) prefs.highlightColor = cHl.value;
-        var chkStr = document.getElementById("chkStroke");
-        if (chkStr) prefs.enableStroke = chkStr.checked;
-        var cStr = document.getElementById("colorStroke");
-        if (cStr) prefs.strokeColor = cStr.value;
-        var sScope = document.getElementById("selectApplyScope");
-        if (sScope) prefs.applyScope = sScope.value;
+        var sPos = document.getElementById("selectPosition");
+        if (sPos) prefs.position = sPos.value;
+        var sAlign = document.getElementById("selectAlign");
+        if (sAlign) prefs.align = sAlign.value;
 
         return prefs;
     },
@@ -411,28 +399,20 @@ var UserPreferences = {
         var selHw = document.getElementById("selectHardware");
         if (selHw) selHw.value = prefs.hardware || "cuda";
 
-        // Stylize tab preferences restore
-        var sWpl = document.getElementById("selectWordsPerLayer");
-        if (sWpl) sWpl.value = prefs.wordsPerLayer || "full";
-        var sAnim = document.getElementById("selectAnimation");
-        if (sAnim) sAnim.value = prefs.animation || "none";
-        var sPos = document.getElementById("selectPosition");
-        if (sPos) sPos.value = prefs.position || "bottom";
-        var sAlign = document.getElementById("selectAlign");
-        if (sAlign) sAlign.value = prefs.align || "center";
+        // Premiere Stylize preferences restore
+        var sFont = document.getElementById("selectFontFamily");
+        if (sFont) sFont.value = prefs.fontFamily || "Arial";
+        var sWeight = document.getElementById("selectFontWeight");
+        if (sWeight) sWeight.value = prefs.fontWeight || "bold";
         var sFSize = document.getElementById("sliderStylizeFontSize");
         var lblFSize = document.getElementById("lblStylizeFontSizeVal");
         if (sFSize) { sFSize.value = prefs.fontSize || 24; if (lblFSize) lblFSize.innerText = (prefs.fontSize || 24) + "px"; }
         var cText = document.getElementById("colorText");
         if (cText) cText.value = prefs.textColor || "#FFFFFF";
-        var cHl = document.getElementById("colorHighlight");
-        if (cHl) cHl.value = prefs.highlightColor || "#FFD700";
-        var chkStr = document.getElementById("chkStroke");
-        if (chkStr) chkStr.checked = prefs.enableStroke !== false;
-        var cStr = document.getElementById("colorStroke");
-        if (cStr) cStr.value = prefs.strokeColor || "#000000";
-        var sScope = document.getElementById("selectApplyScope");
-        if (sScope) sScope.value = prefs.applyScope || "all";
+        var sPos = document.getElementById("selectPosition");
+        if (sPos) sPos.value = prefs.position || "bottom";
+        var sAlign = document.getElementById("selectAlign");
+        if (sAlign) sAlign.value = prefs.align || "center";
 
         updateStylizeSummary();
     },
@@ -449,16 +429,14 @@ function updateStylizeSummary() {
     if (!summaryEl) return;
     var prefs = UserPreferences.gather();
     
-    var wMap = { "full": "Full Cue", "1": "1 Word/Layer", "2": "2 Words/Layer", "3": "3 Words/Layer" };
-    var aMap = { "none": "None", "pop": "Pop In", "fade": "Fade", "karaoke": "Karaoke" };
     var pMap = { "bottom": "Bottom", "center": "Center", "top": "Top" };
     var alMap = { "center": "Center", "left": "Left", "right": "Right" };
+    var wStr = prefs.fontWeight === "bold" ? "Bold" : "Regular";
     
-    var txt = "Words: " + (wMap[prefs.wordsPerLayer] || "Full Cue") +
-              " | Anim: " + (aMap[prefs.animation] || "None") +
-              " | Pos: " + (pMap[prefs.position] || "Bottom") + " (" + (alMap[prefs.align] || "Center") + ")" +
+    var txt = "Font: " + (prefs.fontFamily || "Arial") + " (" + wStr + ")" +
               " | Size: " + (prefs.fontSize || 24) + "px" +
-              " | Stroke: " + (prefs.enableStroke ? "On" : "Off");
+              " | Align: " + (alMap[prefs.align] || "Center") +
+              " | Pos: " + (pMap[prefs.position] || "Bottom");
     summaryEl.innerText = txt;
 }
 
@@ -561,8 +539,7 @@ document.addEventListener("DOMContentLoaded", function() {
     }
 
     var stylizeControlIds = [
-        "selectWordsPerLayer", "selectAnimation", "selectPosition", "selectAlign",
-        "colorText", "colorHighlight", "chkStroke", "colorStroke", "selectApplyScope"
+        "selectFontFamily", "selectFontWeight", "selectPosition", "selectAlign", "colorText"
     ];
     stylizeControlIds.forEach(function(id) {
         var el = document.getElementById(id);
@@ -1128,9 +1105,8 @@ function fmtTime(seconds, fmt) {
 }
 
 function applyStylizedCaptionsFromTab() {
-    ensureLicensedAction("import", function() {
+    ensureLicensedAction("stylize", function() {
         var captions = SubtitleEditor.captions || [];
-        var words = SubtitleEditor.words || [];
 
         if (!captions || captions.length === 0) {
             showAlertModal("No Captions Found", "Please transcribe timeline audio first in the Transcribe tab.");
@@ -1138,79 +1114,26 @@ function applyStylizedCaptionsFromTab() {
         }
 
         var btn = document.getElementById("btnApplyStylized");
-        var originalText = "✨ Apply Stylized Captions";
-        if (btn) { btn.disabled = true; btn.innerText = "Applying Styles..."; }
+        var originalText = "✨ Apply Subtitles to Sequence";
+        if (btn) { btn.disabled = true; btn.innerText = "Applying Subtitles..."; }
 
         var prefs = UserPreferences.gather();
         var styleConfig = {
-            wordsPerLayer: prefs.wordsPerLayer || "full",
-            animation: prefs.animation || "none",
-            position: prefs.position || "bottom",
-            align: prefs.align || "center",
+            fontFamily: prefs.fontFamily || "Arial",
+            fontWeight: prefs.fontWeight || "bold",
             fontSize: parseInt(prefs.fontSize, 10) || 24,
             textColor: prefs.textColor || "#FFFFFF",
-            highlightColor: prefs.highlightColor || "#FFD700",
-            enableStroke: prefs.enableStroke === true,
-            strokeColor: prefs.strokeColor || "#000000",
-            applyScope: prefs.applyScope || "all"
+            position: prefs.position || "bottom",
+            align: prefs.align || "center"
         };
 
-        // Filter selected captions if applyScope is 'selected'
-        var targetCaptions = captions;
-        if (styleConfig.applyScope === "selected" && SubtitleEditor.selectedIndex !== undefined && SubtitleEditor.selectedIndex >= 0) {
-            var selCap = captions[SubtitleEditor.selectedIndex];
-            if (selCap) targetCaptions = [selCap];
-        }
-
-        // Process item chunking if words per layer is 1, 2, or 3
-        var fallbackNotice = null;
-        var finalItems = [];
-
-        if (styleConfig.wordsPerLayer !== "full") {
-            var chunkSize = parseInt(styleConfig.wordsPerLayer, 10) || 1;
-            
-            // Filter words if applyScope is 'selected'
-            var targetWords = words;
-            if (styleConfig.applyScope === "selected" && SubtitleEditor.selectedIndex !== undefined && SubtitleEditor.selectedIndex >= 0) {
-                var selCue = captions[SubtitleEditor.selectedIndex];
-                if (selCue) {
-                    targetWords = words.filter(function(w) {
-                        if (w.cue_index !== undefined) return w.cue_index === SubtitleEditor.selectedIndex;
-                        return w.start >= (selCue.start - 0.05) && w.end <= (selCue.end + 0.05);
-                    });
-                }
-            }
-
-            if (targetWords && targetWords.length > 0) {
-                for (var i = 0; i < targetWords.length; i += chunkSize) {
-                    var chunk = targetWords.slice(i, i + chunkSize);
-                    var chunkText = chunk.map(function(w) { return (w.word || "").toString().trim(); }).join(" ").trim();
-                    var cStart = parseFloat(chunk[0].start) || 0;
-                    var cEnd = parseFloat(chunk[chunk.length - 1].end) || (cStart + 0.3);
-                    if (cEnd <= cStart) cEnd = cStart + 0.2;
-
-                    finalItems.push({
-                        text: chunkText,
-                        start: Math.round(cStart * 1000) / 1000,
-                        end: Math.round(cEnd * 1000) / 1000
-                    });
-                }
-            } else {
-                fallbackNotice = "Word-level timestamps missing for selected mode. Falling back to full cue layout.";
-                finalItems = targetCaptions.map(function(c) {
-                    return { text: c.text, start: c.start, end: c.end };
-                });
-            }
-        } else {
-            finalItems = targetCaptions.map(function(c) {
-                return { text: c.text, start: c.start, end: c.end };
-            });
-        }
+        var finalItems = captions.map(function(c) {
+            return { text: c.text, start: c.start, end: c.end };
+        });
 
         var payload = {
             style: styleConfig,
-            captions: finalItems,
-            words: words
+            captions: finalItems
         };
 
         if (typeof require !== "undefined") {
@@ -1235,23 +1158,15 @@ function applyStylizedCaptionsFromTab() {
             ExtendScriptBridge.importStyledSubtitles(jsonPath, function(res) {
                 if (btn) { btn.disabled = false; btn.innerText = originalText; }
                 if (!res || !res.success) {
-                    var err = (res && res.error) ? res.error : "Failed to apply stylized captions.";
-                    showAlertModal("Stylize Notice", err);
+                    var err = (res && res.error) ? res.error : "Failed to apply subtitles to sequence.";
+                    showAlertModal("Notice", err);
                 } else {
-                    if (fallbackNotice) {
-                        showAlertModal("Notice", fallbackNotice);
-                    } else {
-                        showAlertModal("Success", "Stylized captions applied successfully to timeline!");
-                    }
+                    showAlertModal("Success", "Subtitles created and applied to active sequence timeline!");
                 }
             });
         } else {
             if (btn) { btn.disabled = false; btn.innerText = originalText; }
-            if (fallbackNotice) {
-                showAlertModal("Notice", fallbackNotice);
-            } else {
-                showAlertModal("Success", "Stylized captions applied (Browser Preview Mode)!");
-            }
+            showAlertModal("Success", "Subtitles applied (Browser Preview Mode)!");
         }
     });
 }
