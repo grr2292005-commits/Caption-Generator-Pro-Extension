@@ -6,6 +6,16 @@ if (typeof $._AE_ === "undefined") {
     $._AE_ = $._PPP_;
 }
 
+function isCompItem(item) {
+    if (!item) return false;
+    try {
+        if (typeof CompItem !== "undefined" && item instanceof CompItem) return true;
+        if (item.typeName === "Composition") return true;
+        if (typeof item.numLayers !== "undefined") return true;
+    } catch(e) {}
+    return false;
+}
+
 $._PPP_.testConnection = function() {
     return "OK|After Effects Host ready";
 };
@@ -14,15 +24,13 @@ $._PPP_.getProjectDetails = function() {
     try {
         var name = "UntitledAEProject";
         var path = "";
-        if (app && app.project) {
-            if (app.project.file) {
-                path = app.project.file.parent.fsName.replace(/\\/g, "/");
-                name = app.project.file.name.replace(/\.[^\.]+$/, "");
-            }
+        if (app && app.project && app.project.file && app.project.file.parent) {
+            path = app.project.file.parent.fsName.replace(/\\/g, "/");
+            name = app.project.file.name.replace(/\.[^\.]+$/, "");
         }
         var compName = "NoActiveComp";
-        if (app.project.activeItem && app.project.activeItem instanceof CompItem) {
-            compName = app.project.activeItem.name;
+        if (app && app.project && app.project.activeItem && isCompItem(app.project.activeItem)) {
+            compName = app.project.activeItem.name || "NoActiveComp";
         }
         return "OK|" + name + "|" + path + "|" + compName;
     } catch (e) {
@@ -31,42 +39,44 @@ $._PPP_.getProjectDetails = function() {
 };
 
 function getLayerSourceFile(layer) {
-    if (!layer || !layer.source) return null;
-    var src = layer.source;
-
-    // 1. Check mainSource.file (Standard for FootageItem in After Effects ExtendScript)
-    if (src.mainSource && src.mainSource.file) {
-        return src.mainSource.file;
-    }
-
-    // 2. Direct file property on source
-    if (src.file) {
-        return src.file;
-    }
-
+    if (!layer) return null;
+    try {
+        if (layer.source) {
+            var src = layer.source;
+            if (src && src.mainSource && src.mainSource.file) {
+                return src.mainSource.file;
+            }
+            if (src && src.file) {
+                return src.file;
+            }
+        }
+    } catch (e) {}
     return null;
 }
 
 function checkLayerHasAudio(layer) {
     if (!layer) return false;
-
-    if (typeof layer.hasAudio !== "undefined") {
-        if (layer.hasAudio === true) {
-            return (typeof layer.audioEnabled !== "undefined") ? layer.audioEnabled : true;
+    try {
+        if (typeof layer.hasAudio !== "undefined" && layer.hasAudio !== null) {
+            if (layer.hasAudio === true) {
+                return (typeof layer.audioEnabled !== "undefined" && layer.audioEnabled !== null) ? layer.audioEnabled : true;
+            }
+            if (layer.hasAudio === false) {
+                return false;
+            }
         }
-    }
-
-    if (layer.source) {
-        if (layer.source.hasAudio === true) return true;
-        if (layer.source.mainSource && layer.source.mainSource.hasAudio === true) return true;
-    }
-
+        if (layer.source) {
+            var src = layer.source;
+            if (src && typeof src.hasAudio !== "undefined" && src.hasAudio === true) return true;
+            if (src && src.mainSource && typeof src.mainSource.hasAudio !== "undefined" && src.mainSource.hasAudio === true) return true;
+        }
+    } catch (e) {}
     return true;
 }
 
 $._PPP_.exportAudio = function(targetWavPath) {
     try {
-        if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
+        if (!app || !app.project || !app.project.activeItem || !isCompItem(app.project.activeItem)) {
             return "ERR|Could not read the active composition. Make sure a composition is open in After Effects.";
         }
 
