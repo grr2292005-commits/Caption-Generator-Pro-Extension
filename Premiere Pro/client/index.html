@@ -23,7 +23,6 @@
     <nav class="nav-tabs">
         <button class="tab-btn active" data-tab="tab-transcribe">Transcribe</button>
         <button class="tab-btn" data-tab="tab-editor">Editor</button>
-        <button class="tab-btn" data-tab="tab-stylize">Stylize</button>
         <button class="tab-btn" data-tab="tab-settings">Settings</button>
     </nav>
 
@@ -177,89 +176,7 @@
         </div>
     </main>
 
-    <!-- Tab 3: Stylize (Premiere Pro Simple Styling) -->
-    <main id="tab-stylize" class="tab-content">
-        <!-- Live Style Summary Banner -->
-        <div class="card stylize-summary-card">
-            <div class="card-title">Live Style Config</div>
-            <div id="stylizeSummary" class="stylize-summary-text">
-                Font: Arial (Bold) | Size: 24px | Align: Center | Pos: Bottom
-            </div>
-        </div>
-
-        <!-- 1. Typography (Font Family & Weight) -->
-        <div class="card">
-            <div class="card-title">A. Typography</div>
-            <div class="form-row">
-                <div class="form-group half">
-                    <label for="selectFontFamily">Font Family:</label>
-                    <select id="selectFontFamily">
-                        <option value="Arial">Arial</option>
-                        <option value="Helvetica">Helvetica</option>
-                        <option value="Impact">Impact</option>
-                        <option value="Trebuchet MS">Trebuchet MS</option>
-                        <option value="Verdana">Verdana</option>
-                        <option value="Georgia">Georgia</option>
-                        <option value="Courier New">Courier New</option>
-                        <option value="Times New Roman">Times New Roman</option>
-                        <option value="Montserrat">Montserrat</option>
-                        <option value="Roboto">Roboto</option>
-                    </select>
-                </div>
-                <div class="form-group half">
-                    <label for="selectFontWeight">Font Weight:</label>
-                    <select id="selectFontWeight">
-                        <option value="bold">Bold</option>
-                        <option value="normal">Regular</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- 2. Font Size & Text Color -->
-        <div class="card">
-            <div class="card-title">B. Appearance & Color</div>
-            <div class="form-group">
-                <label for="sliderStylizeFontSize">Font Size (px): <span id="lblStylizeFontSizeVal">24px</span></label>
-                <input type="range" id="sliderStylizeFontSize" min="12" max="72" value="24" step="1">
-            </div>
-
-            <div class="form-group" style="margin-top: 8px;">
-                <label for="colorText">Text Color:</label>
-                <input type="color" id="colorText" value="#FFFFFF" class="color-picker-input">
-            </div>
-        </div>
-
-        <!-- 3. Layout & Position -->
-        <div class="card">
-            <div class="card-title">C. Layout & Alignment</div>
-            <div class="form-row">
-                <div class="form-group half">
-                    <label for="selectPosition">Position:</label>
-                    <select id="selectPosition">
-                        <option value="bottom">Bottom (Lower Third)</option>
-                        <option value="center">Center Screen</option>
-                        <option value="top">Top Header</option>
-                    </select>
-                </div>
-                <div class="form-group half">
-                    <label for="selectAlign">Text Align:</label>
-                    <select id="selectAlign">
-                        <option value="center">Center</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. Action -->
-        <div class="card">
-            <button id="btnApplyStylized" class="btn-primary" style="width: 100%;">✨ Apply Subtitles to Sequence</button>
-        </div>
-    </main>
-
-    <!-- Tab 4: Settings -->
+    <!-- Tab 3: Settings -->
     <main id="tab-settings" class="tab-content">
         <div class="card">
             <div class="card-title">License</div>
