@@ -291,8 +291,16 @@ class CaptionBackend:
     def process_single_clip_audio(self, audio_file_path, model_obj, is_faster_whisper, task, whisper_lang, remove_fillers, max_chars, max_dur, gap_frames, line_mode, target_language, norm_source="auto"):
         """Transcribes a single WAV file using preloaded Whisper model and returns (captions, words, warning)."""
         result_segments = []
+        kwargs = {"word_timestamps": True, "task": task}
+        if whisper_lang:
+            kwargs["language"] = whisper_lang
+
+        # Enforce initial_prompt for Hindi to prime autoregressive decoder into Devanagari script
+        if whisper_lang == "hi" or norm_source == "hi":
+            kwargs["initial_prompt"] = "यह हिंदी में है। कृपया देवनागरी लिपि में ही लिखें।"
+
         if is_faster_whisper:
-            segments, info = model_obj.transcribe(audio_file_path, word_timestamps=True, task=task, language=whisper_lang)
+            segments, info = model_obj.transcribe(audio_file_path, **kwargs)
             det_lang = getattr(info, 'language', whisper_lang or 'auto')
             det_prob = round(getattr(info, 'language_probability', 1.0), 2)
             print(f"[CGP Clip Transcribe] Whisper language='{whisper_lang}' (detected='{det_lang}', prob={det_prob}), task='{task}'")
@@ -303,9 +311,6 @@ class CaptionBackend:
                         words.append({"word": w.word, "start": w.start, "end": w.end})
                 result_segments.append({"text": seg.text, "words": words, "start": seg.start, "end": seg.end})
         else:
-            kwargs = {"word_timestamps": True, "task": task}
-            if whisper_lang:
-                kwargs["language"] = whisper_lang
             res = model_obj.transcribe(audio_file_path, **kwargs)
             result_segments = res.get("segments", [])
 
@@ -412,17 +417,47 @@ class CaptionBackend:
             })
             words_output.extend(current_words)
 
-        # Quality Guard: If Source is Hindi ('hi') and Target is NOT English ('en'), verify text contains Devanagari script and no Arabic/CJK/Cyrillic
+        # Quality Guard: If Source is Hindi ('hi') OR output contains Arabic script, trigger forced retry pass with language='hi', task='transcribe'
         norm_target = normalize_language_code(target_language)
-        if norm_source == "hi" and norm_target != "en":
-            sample_txt = " ".join([c.get("text", "") for c in captions[:5]])
+        has_arabic_in_output = any(contains_arabic(c.get("text", "")) for c in captions)
+        sample_txt = " ".join([c.get("text", "") for c in captions[:5]])
+
+        if (norm_source == "hi" or has_arabic_in_output) and norm_target != "en":
             if sample_txt and (not contains_devanagari(sample_txt) or contains_arabic(sample_txt) or contains_cjk(sample_txt) or contains_cyrillic(sample_txt)):
-                print(f"[CGP Quality Guard] Source language is 'hi' but transcript output has invalid script (sample: '{sample_txt[:50]}'). Retrying forced pass with language='hi', task='transcribe'...")
+                print(f"[CGP Quality Guard] Detected invalid script or Arabic in transcript (sample: '{sample_txt[:50]}'). Retrying forced pass with language='hi', task='transcribe'...")
                 if whisper_lang != "hi" or task != "transcribe":
                     return self.process_single_clip_audio(
                         audio_file_path, model_obj, is_faster_whisper, "transcribe", "hi",
                         remove_fillers, max_chars, max_dur, gap_frames, line_mode, target_language, norm_source="hi"
                     )
+
+        # Universal Arabic Script Sanitizer & Transliteration Engine: Convert or purge any remaining Arabic script
+        if any(contains_arabic(c.get("text", "")) for c in captions) or any(contains_arabic(w.get("word", "")) for w in words_output):
+            print("[CGP Quality Guard] Purging/converting remaining Arabic script to Hindi Devanagari...")
+            for cap in captions:
+                c_txt = cap.get("text", "")
+                if contains_arabic(c_txt):
+                    lines = c_txt.split("\n")
+                    clean_lines = []
+                    for line in lines:
+                        if contains_arabic(line):
+                            t_hi = translate_text(line, "hi")
+                            if t_hi and contains_devanagari(t_hi) and not contains_arabic(t_hi):
+                                clean_lines.append(t_hi)
+                            else:
+                                clean_lines.append("")
+                        else:
+                            clean_lines.append(line)
+                    cap["text"] = "\n".join(clean_lines)
+
+            for w_item in words_output:
+                w_str = w_item.get("word", "")
+                if contains_arabic(w_str):
+                    t_w_hi = translate_text(w_str, "hi")
+                    if t_w_hi and contains_devanagari(t_w_hi) and not contains_arabic(t_w_hi):
+                        w_item["word"] = t_w_hi
+                    else:
+                        w_item["word"] = ""
 
         # Obvious hallucination phrases commonly generated by Whisper on silence/short audio
         hallucinations = {
