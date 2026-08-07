@@ -48,6 +48,10 @@ def contains_cyrillic(text):
     """Detects Russian/Cyrillic characters."""
     return bool(re.search(r'[\u0400-\u04ff]', text))
 
+def contains_arabic(text):
+    """Detects Arabic/Persian/Urdu script."""
+    return bool(re.search(r'[\u0600-\u06ff\u0750-\u077f\u08a0-\u08ff\ufb50-\ufdff\ufe70-\ufeff]', text))
+
 def contains_devanagari(text):
     """Detects Hindi Devanagari script."""
     return bool(re.search(r'[\u0900-\u097f]', text))
@@ -57,21 +61,21 @@ def is_valid_script_for_lang(text, lang_code):
         return True
     lang = normalize_language_code(lang_code)
 
-    # Hindi output MUST NOT contain CJK (Chinese/Japanese) or Cyrillic characters
+    # Hindi output MUST NOT contain CJK (Chinese/Japanese), Cyrillic, or Arabic characters
     if lang == "hi":
-        if contains_cjk(text) or contains_cyrillic(text):
+        if contains_cjk(text) or contains_cyrillic(text) or contains_arabic(text):
             return False
         return True
 
-    # English output MUST NOT contain CJK or Cyrillic characters
+    # English output MUST NOT contain CJK, Cyrillic, or Arabic characters
     if lang == "en":
-        if contains_cjk(text) or contains_cyrillic(text):
+        if contains_cjk(text) or contains_cyrillic(text) or contains_arabic(text):
             return False
         return True
 
-    # Western languages MUST NOT contain CJK characters
+    # Western languages MUST NOT contain CJK or Arabic characters
     if lang in ["es", "fr", "de", "it", "pt"]:
-        if contains_cjk(text):
+        if contains_cjk(text) or contains_arabic(text):
             return False
         return True
 
@@ -408,12 +412,12 @@ class CaptionBackend:
             })
             words_output.extend(current_words)
 
-        # Quality Guard: If Source is Hindi ('hi') and Target is NOT English ('en'), verify text contains Devanagari
+        # Quality Guard: If Source is Hindi ('hi') and Target is NOT English ('en'), verify text contains Devanagari script and no Arabic/CJK/Cyrillic
         norm_target = normalize_language_code(target_language)
         if norm_source == "hi" and norm_target != "en":
             sample_txt = " ".join([c.get("text", "") for c in captions[:5]])
-            if sample_txt and not contains_devanagari(sample_txt):
-                print(f"[CGP Quality Guard] Source language is 'hi' but transcript output lacks Devanagari script (sample: '{sample_txt[:50]}'). Retrying forced pass with language='hi', task='transcribe'...")
+            if sample_txt and (not contains_devanagari(sample_txt) or contains_arabic(sample_txt) or contains_cjk(sample_txt) or contains_cyrillic(sample_txt)):
+                print(f"[CGP Quality Guard] Source language is 'hi' but transcript output has invalid script (sample: '{sample_txt[:50]}'). Retrying forced pass with language='hi', task='transcribe'...")
                 if whisper_lang != "hi" or task != "transcribe":
                     return self.process_single_clip_audio(
                         audio_file_path, model_obj, is_faster_whisper, "transcribe", "hi",
