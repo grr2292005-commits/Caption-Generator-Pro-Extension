@@ -5,6 +5,9 @@ if (typeof $._PPP_ === "undefined") {
 if (typeof $._AE_ === "undefined") {
     $._AE_ = $._PPP_;
 }
+if (typeof $._AE_CGP_ === "undefined") {
+    $._AE_CGP_ = $._PPP_;
+}
 
 function isCompItem(item) {
     if (!item) return false;
@@ -12,6 +15,15 @@ function isCompItem(item) {
         if (typeof CompItem !== "undefined" && item instanceof CompItem) return true;
         if (item.typeName === "Composition") return true;
         if (typeof item.numLayers !== "undefined") return true;
+    } catch(e) {}
+    return false;
+}
+
+function isTextLayer(layer) {
+    if (!layer) return false;
+    try {
+        if (typeof TextLayer !== "undefined" && layer instanceof TextLayer) return true;
+        if (layer.property && layer.property("Source Text") !== null) return true;
     } catch(e) {}
     return false;
 }
@@ -290,7 +302,7 @@ function removeExistingSubtitleLayers(targetComp) {
 
 $._PPP_.importSubtitles = function(srtPath, jsonPath, importMethod, replaceExisting) {
     try {
-        if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
+        if (!app || !app.project || !app.project.activeItem || !isCompItem(app.project.activeItem)) {
             return "ERR|Could not read the active composition. Make sure a composition is open.";
         }
 
@@ -394,7 +406,7 @@ function padNum(n) {
 
 $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting) {
     try {
-        if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
+        if (!app || !app.project || !app.project.activeItem || !isCompItem(app.project.activeItem)) {
             return "ERR|Could not read the active composition. Make sure a composition is open in After Effects.";
         }
 
@@ -583,9 +595,9 @@ function resetPropKeyframes(prop) {
     }
 }
 
-$._AE_CGP_.applyPresetToLayers = function(jsonPath) {
+$._PPP_.applyPresetToLayers = function(jsonPath) {
     try {
-        var targetComp = app.project.activeComp;
+        var targetComp = (app && app.project) ? app.project.activeComp : null;
         if (!targetComp) {
             return "ERR|No active composition found. Please select or open a composition in After Effects.";
         }
@@ -616,7 +628,7 @@ $._AE_CGP_.applyPresetToLayers = function(jsonPath) {
         if (targetingMode === "selected") {
             if (targetComp.selectedLayers && targetComp.selectedLayers.length > 0) {
                 for (var s = 0; s < targetComp.selectedLayers.length; s++) {
-                    if (targetComp.selectedLayers[s] instanceof TextLayer) {
+                    if (isTextLayer(targetComp.selectedLayers[s])) {
                         targetLayers.push(targetComp.selectedLayers[s]);
                     }
                 }
@@ -624,14 +636,14 @@ $._AE_CGP_.applyPresetToLayers = function(jsonPath) {
         } else if (targetingMode === "cgp_all") {
             for (var l = 1; l <= targetComp.numLayers; l++) {
                 var lyr = targetComp.layer(l);
-                if (lyr instanceof TextLayer && (lyr.name.indexOf("CGP_Caption_") === 0 || lyr.comment === "CGP_SUBTITLE")) {
+                if (isTextLayer(lyr) && (lyr.name.indexOf("CGP_Caption_") === 0 || lyr.comment === "CGP_SUBTITLE")) {
                     targetLayers.push(lyr);
                 }
             }
         } else if (targetingMode === "comp_all") {
             for (var l2 = 1; l2 <= targetComp.numLayers; l2++) {
                 var lyr2 = targetComp.layer(l2);
-                if (lyr2 instanceof TextLayer) {
+                if (isTextLayer(lyr2)) {
                     targetLayers.push(lyr2);
                 }
             }
