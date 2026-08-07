@@ -30,6 +30,40 @@ $._PPP_.getProjectDetails = function() {
     }
 };
 
+function getLayerSourceFile(layer) {
+    if (!layer || !layer.source) return null;
+    var src = layer.source;
+
+    // 1. Check mainSource.file (Standard for FootageItem in After Effects ExtendScript)
+    if (src.mainSource && src.mainSource.file) {
+        return src.mainSource.file;
+    }
+
+    // 2. Direct file property on source
+    if (src.file) {
+        return src.file;
+    }
+
+    return null;
+}
+
+function checkLayerHasAudio(layer) {
+    if (!layer) return false;
+
+    if (typeof layer.hasAudio !== "undefined") {
+        if (layer.hasAudio === true) {
+            return (typeof layer.audioEnabled !== "undefined") ? layer.audioEnabled : true;
+        }
+    }
+
+    if (layer.source) {
+        if (layer.source.hasAudio === true) return true;
+        if (layer.source.mainSource && layer.source.mainSource.hasAudio === true) return true;
+    }
+
+    return true;
+}
+
 $._PPP_.exportAudio = function(targetWavPath) {
     try {
         if (!app.project || !app.project.activeItem || !(app.project.activeItem instanceof CompItem)) {
@@ -50,42 +84,63 @@ $._PPP_.exportAudio = function(targetWavPath) {
         var clipsToProcess = [];
         var minLayerIn = 999999;
         var maxLayerOut = 0;
+        var totalEnabledLayers = 0;
+        var unresolvedMediaLayers = 0;
 
         for (var i = 1; i <= comp.numLayers; i++) {
             var layer = comp.layer(i);
             if (!layer || !layer.enabled) continue;
-            
-            // Prioritize layers with source files (audio or video footage)
-            if (layer.source && layer.source.file) {
-                var f = layer.source.file;
-                if (!f || !f.exists) continue;
+            totalEnabledLayers++;
 
-                var lIn = parseFloat(layer.inPoint) || 0;
-                var lOut = parseFloat(layer.outPoint) || 0;
-                var lStart = parseFloat(layer.startTime) || 0;
+            var f = getLayerSourceFile(layer);
+            if (!f) {
+                unresolvedMediaLayers++;
+                continue;
+            }
 
-                if (lOut > lIn) {
-                    if (lIn < minLayerIn) minLayerIn = lIn;
-                    if (lOut > maxLayerOut) maxLayerOut = lOut;
+            var filePath = "";
+            if (f.fsName) {
+                filePath = f.fsName.replace(/\\/g, "/");
+            } else if (f.fullName) {
+                filePath = f.fullName.replace(/\\/g, "/");
+            } else if (f.absoluteURI) {
+                filePath = decodeURIComponent(f.absoluteURI).replace(/file:\/\/\//g, "").replace(/\\/g, "/");
+            }
 
-                    clipsToProcess.push({
-                        mediaPath: f.fsName.replace(/\\/g, "/"),
-                        clipStart: lIn,
-                        clipEnd: lOut,
-                        startTime: lStart,
-                        hasAudio: layer.hasAudio && layer.audioEnabled,
-                        clipName: layer.name || ("Layer_" + i),
-                        trackIndex: i
-                    });
-                }
+            if (!filePath) {
+                unresolvedMediaLayers++;
+                continue;
+            }
+
+            var lIn = parseFloat(layer.inPoint) || 0;
+            var lOut = parseFloat(layer.outPoint) || 0;
+            var lStart = parseFloat(layer.startTime) || 0;
+
+            if (lOut > lIn) {
+                if (lIn < minLayerIn) minLayerIn = lIn;
+                if (lOut > maxLayerOut) maxLayerOut = lOut;
+
+                clipsToProcess.push({
+                    mediaPath: filePath,
+                    clipStart: lIn,
+                    clipEnd: lOut,
+                    startTime: lStart,
+                    hasAudio: checkLayerHasAudio(layer),
+                    clipName: layer.name || ("Layer_" + i),
+                    trackIndex: i
+                });
             }
         }
 
         if (clipsToProcess.length === 0) {
-            return "ERR|No valid footage or audio layers found in active composition.";
+            if (totalEnabledLayers > 0 && unresolvedMediaLayers > 0) {
+                return "ERR|Found audio/video layers but could not resolve media file path.";
+            } else {
+                return "ERR|No audio or video layers found in active composition.";
+            }
         }
 
-        // Filter audio layers if audio-enabled layers exist
+        // Filter audio-enabled layers if audio clips exist
         var audioClips = [];
         for (var a = 0; a < clipsToProcess.length; a++) {
             if (clipsToProcess[a].hasAudio) audioClips.push(clipsToProcess[a]);

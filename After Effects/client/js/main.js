@@ -907,10 +907,10 @@ function runTranscribeWorkflow() {
                     var rawErr = (exportRes && exportRes.error) ? exportRes.error : "No comp media found";
                     console.warn("Active Comp Audio Export Technical Log:", rawErr);
 
-                    if (rawErr.toLowerCase().indexOf("composition") !== -1 || rawErr.toLowerCase().indexOf("comp") !== -1) {
-                        showAlertModal("Active Composition Required", "Could not read the active composition. Make sure a composition is open.");
+                    if (rawErr.toLowerCase().indexOf("could not read") !== -1 || rawErr.toLowerCase().indexOf("active composition") !== -1) {
+                        showAlertModal("Active Composition Required", rawErr);
                     } else {
-                        showAlertModal("Timeline Clip Required", "No audio or video clip found on the timeline. Please add a clip first.");
+                        showAlertModal("Composition Audio Layer Required", rawErr);
                     }
                     return;
                 }
