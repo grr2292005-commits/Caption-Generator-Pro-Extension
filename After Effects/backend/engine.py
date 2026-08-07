@@ -8,30 +8,53 @@ from datetime import timedelta
 def translate_text(text, target_lang):
     if not text or not target_lang or target_lang in ["none", "auto"]:
         return text
+
+    target_code = target_lang.lower().strip()
+    if target_code in ["hindi", "hi_in", "hi-in"]:
+        target_code = "hi"
+    elif target_code in ["spanish", "es_es", "es-es"]:
+        target_code = "es"
+
     # 1. Try deep_translator if available
     try:
         from deep_translator import GoogleTranslator
-        res = GoogleTranslator(source='auto', target=target_lang).translate(text)
-        if res:
-            return res
+        res = GoogleTranslator(source='auto', target=target_code).translate(text)
+        if res and res.strip():
+            return res.strip()
     except Exception:
         pass
 
-    # 2. Standard library fallback via Google Translate API
+    # 2. Standard library fallback via Google Translate GTX API
     try:
         import urllib.request
         import urllib.parse
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + target_lang + "&dt=t&q=" + urllib.parse.quote(text)
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" + target_code + "&dt=t&q=" + urllib.parse.quote(text)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if data and isinstance(data, list) and len(data) > 0 and data[0]:
                 translated_parts = [item[0] for item in data[0] if item and item[0]]
                 if translated_parts:
-                    return "".join(translated_parts)
+                    return "".join(translated_parts).strip()
     except Exception as err:
-        print(f"Google translate fallback error: {err}")
-    
+        print(f"Google translate gtx fallback error: {err}")
+
+    # 3. Alternate Google Translate dict-chrome endpoint fallback
+    try:
+        import urllib.request
+        import urllib.parse
+        url = "https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=" + target_code + "&q=" + urllib.parse.quote(text)
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if data and isinstance(data, list) and len(data) > 0:
+                if isinstance(data[0], str):
+                    return data[0].strip()
+                elif isinstance(data[0], list) and len(data[0]) > 0:
+                    return str(data[0][0]).strip()
+    except Exception as errAlt:
+        print(f"Google translate dict-chrome fallback error: {errAlt}")
+
     return text
 
 class CaptionBackend:
@@ -223,12 +246,14 @@ class CaptionBackend:
                         "end": seg.get("end", 1.0)
                     })
 
-        current_text = []
-        current_start = None
-        current_end = None
-        current_cue_words = []
-        gap_seconds = gap_frames * 0.033
         cue_idx = 0
+        current_words = []
+
+        def ends_with_sentence_punct(w_str):
+            return bool(re.search(r'[.!?|।]\s*$', w_str))
+
+        def ends_with_clause_punct(w_str):
+            return bool(re.search(r'[,;:—\-]\s*$', w_str))
 
         for word_data in all_words:
             raw_w = word_data.get("word", "")
@@ -252,40 +277,60 @@ class CaptionBackend:
                 "cue_index": cue_idx
             }
 
-            if current_start is None:
-                current_start, current_end = start, end
-                current_text = [word]
-                current_cue_words = [w_obj]
+            if not current_words:
+                w_obj["cue_index"] = cue_idx
+                current_words = [w_obj]
             else:
-                temp_text = " ".join(current_text + [word])
-                duration = end - current_start
+                prev_w = current_words[-1]["word"]
+                cand_text = " ".join([w["word"] for w in current_words] + [word])
+                cand_dur = end - current_words[0]["start"]
 
-                if len(temp_text) > max_chars or duration > max_dur:
+                has_sentence_end = ends_with_sentence_punct(prev_w)
+                has_clause_end = ends_with_clause_punct(prev_w)
+                pause_gap = start - current_words[-1]["end"]
+
+                should_split = False
+
+                # 1. Split on strong sentence boundaries (. ! ? ।) when current cue is meaningful
+                if has_sentence_end and (len(" ".join([w["word"] for w in current_words])) >= 10 or cand_dur > (max_dur * 0.4) or pause_gap >= 0.2):
+                    should_split = True
+                # 2. Exceeding max_chars or max_dur limits
+                elif len(cand_text) > max_chars or cand_dur > max_dur:
+                    should_split = True
+                # 3. Audio pause > 0.5s between words
+                elif pause_gap > 0.5 and len(" ".join([w["word"] for w in current_words])) >= 12:
+                    should_split = True
+
+                if should_split:
+                    cue_start = current_words[0]["start"]
+                    cue_end = current_words[-1]["end"]
+                    cue_text = " ".join([w["word"] for w in current_words])
+
                     captions.append({
-                        "text": self.format_lines(" ".join(current_text), line_mode),
-                        "start": round(current_start, 3),
-                        "end": round(current_end, 3)
+                        "text": self.format_lines(cue_text, line_mode),
+                        "start": round(cue_start, 3),
+                        "end": round(cue_end, 3)
                     })
-                    words_output.extend(current_cue_words)
+                    words_output.extend(current_words)
 
                     cue_idx += 1
-                    current_start, current_end = start + gap_seconds, end
-                    current_text = [word]
                     w_obj["cue_index"] = cue_idx
-                    current_cue_words = [w_obj]
+                    current_words = [w_obj]
                 else:
-                    current_text.append(word)
-                    current_end = end
                     w_obj["cue_index"] = cue_idx
-                    current_cue_words.append(w_obj)
+                    current_words.append(w_obj)
 
-        if current_text:
+        if current_words:
+            cue_start = current_words[0]["start"]
+            cue_end = current_words[-1]["end"]
+            cue_text = " ".join([w["word"] for w in current_words])
+
             captions.append({
-                "text": self.format_lines(" ".join(current_text), line_mode),
-                "start": round(current_start, 3),
-                "end": round(current_end, 3)
+                "text": self.format_lines(cue_text, line_mode),
+                "start": round(cue_start, 3),
+                "end": round(cue_end, 3)
             })
-            words_output.extend(current_cue_words)
+            words_output.extend(current_words)
 
         # Obvious hallucination phrases commonly generated by Whisper on silence/short audio
         hallucinations = {
