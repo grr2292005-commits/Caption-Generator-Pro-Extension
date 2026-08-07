@@ -587,6 +587,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // 5. UI Buttons
     var btnTranscribe = document.getElementById("btnTranscribe");
+    var btnCancelTranscribe = document.getElementById("btnCancelTranscribe");
     var btnApplyEdits = document.getElementById("btnApplyEdits");
     var btnApplyStylized = document.getElementById("btnApplyStylized");
     var btnGenLayers = document.getElementById("btnGenerateCaptionLayers");
@@ -595,6 +596,12 @@ document.addEventListener("DOMContentLoaded", function() {
     var btnExportSRT = document.getElementById("btnExportSRT");
     var btnModalCancel = document.getElementById("btnModalCancel");
     var btnModalClose = document.getElementById("btnModalClose");
+
+    if (btnCancelTranscribe) {
+        btnCancelTranscribe.addEventListener("click", function() {
+            cancelTranscribeWorkflow();
+        });
+    }
 
     if (btnApplyStylized) {
         btnApplyStylized.addEventListener("click", function() {
@@ -780,18 +787,57 @@ function ensureLicensedAction(actionName, callback) {
     });
 }
 
+var activePythonProcess = null;
+var isTranscriptionCancelled = false;
+
+function cancelTranscribeWorkflow() {
+    isTranscriptionCancelled = true;
+    if (activePythonProcess) {
+        try {
+            var pid = activePythonProcess.pid;
+            if (process.platform === "win32") {
+                var cp = require("child_process");
+                cp.exec("taskkill /F /T /PID " + pid, function () {});
+            } else {
+                activePythonProcess.kill("SIGKILL");
+            }
+        } catch (e) {
+            console.warn("Error killing Python process:", e);
+        }
+        activePythonProcess = null;
+    }
+
+    var btn = document.getElementById("btnTranscribe");
+    var btnCancel = document.getElementById("btnCancelTranscribe");
+    if (btn) {
+        btn.disabled = false;
+        btn.innerText = "Transcribe Active Comp";
+    }
+    if (btnCancel) {
+        btnCancel.style.display = "none";
+    }
+    showAlertModal("Transcription Cancelled", "Transcription cancelled by user.");
+}
+
 function runTranscribeWorkflow() {
     ensureLicensedAction("transcribe", function() {
         var btn = document.getElementById("btnTranscribe");
+        var btnCancel = document.getElementById("btnCancelTranscribe");
         if (!btn || btn.disabled) return;
 
+        isTranscriptionCancelled = false;
         var originalText = "Transcribe Active Comp";
         btn.disabled = true;
         btn.innerText = "Processing...";
+        if (btnCancel) btnCancel.style.display = "inline-block";
 
         var proceedWithAudioPath = function(audioPath, exportStart, projectDetails) {
+            if (isTranscriptionCancelled) return;
             btn.innerText = "Transcribing Speech AI...";
             runPythonBackend(audioPath, projectDetails, function(backendRes) {
+                if (btnCancel) btnCancel.style.display = "none";
+                if (isTranscriptionCancelled) return;
+
                 if (!backendRes || !backendRes.success) {
                     btn.disabled = false;
                     btn.innerText = originalText;
@@ -848,12 +894,16 @@ function runTranscribeWorkflow() {
         };
 
         ExtendScriptBridge.getProjectDetails(function (projectDetails) {
+            if (isTranscriptionCancelled) return;
             var tempAudioPath = getTempAudioPath();
 
             ExtendScriptBridge.exportAudio(tempAudioPath, function (exportRes) {
+                if (isTranscriptionCancelled) return;
+
                 if (!exportRes || !exportRes.success) {
                     btn.disabled = false;
                     btn.innerText = originalText;
+                    if (btnCancel) btnCancel.style.display = "none";
                     var rawErr = (exportRes && exportRes.error) ? exportRes.error : "No comp media found";
                     console.warn("Active Comp Audio Export Technical Log:", rawErr);
 
@@ -952,20 +1002,29 @@ function runPythonBackend(audioPath, projectDetails, callback) {
             PYTHONUTF8: "1"
         })
     });
+    activePythonProcess = proc;
     var stdoutData = "";
     var stderrData = "";
 
     proc.stdout.on("data", function (data) {
+        if (isTranscriptionCancelled) return;
         stdoutData += data.toString();
     });
 
     proc.stderr.on("data", function (data) {
+        if (isTranscriptionCancelled) return;
         var str = data.toString();
         stderrData += str;
         console.warn("Backend log:", str);
     });
 
     proc.on("close", function (code) {
+        activePythonProcess = null;
+        if (isTranscriptionCancelled) {
+            console.log("[CGP] Process closed after user cancellation.");
+            return;
+        }
+
         var parsed = null;
         try {
             var jsonMatch = stdoutData.match(/---RESULT_JSON_START---\s*([\s\S]*?)\s*---RESULT_JSON_END---/);
