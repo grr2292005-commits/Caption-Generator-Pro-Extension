@@ -739,9 +739,94 @@ class CaptionBackend:
         else:
             return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
 
+def run_language_selftests():
+    print("=" * 60)
+    print("  CAPTION GENERATOR PRO - BACKEND LANGUAGE SELF-TEST REPORT")
+    print("=" * 60)
+
+    passed = 0
+    total = 0
+
+    # 1. Test normalize_language_code
+    total += 1
+    try:
+        assert normalize_language_code("Hindi") == "hi"
+        assert normalize_language_code("hi-IN") == "hi"
+        assert normalize_language_code("hi_IN") == "hi"
+        assert normalize_language_code("Spanish") == "es"
+        assert normalize_language_code("es-ES") == "es"
+        assert normalize_language_code("French") == "fr"
+        assert normalize_language_code("Japanese") == "ja"
+        assert normalize_language_code("English") == "en"
+        assert normalize_language_code("auto") == "auto"
+        assert normalize_language_code("") == "auto"
+        assert normalize_language_code(None) == "auto"
+        print("[PASS] Test 1: Language Normalization (Hindi/Spanish/French/Japanese/English/Auto)")
+        passed += 1
+    except AssertionError as e:
+        print(f"[FAIL] Test 1: Language Normalization failed! ({e})")
+
+    # 2. Test explicit source language enforcement
+    total += 1
+    try:
+        norm_source = normalize_language_code("Hindi")
+        norm_target = normalize_language_code("none")
+        whisper_lang = norm_source if norm_source != "auto" else None
+        assert whisper_lang == "hi", f"Expected whisper_lang='hi', got '{whisper_lang}'"
+        print("[PASS] Test 2: Explicit Source Language Enforcement (Hindi -> whisper_lang='hi')")
+        passed += 1
+    except AssertionError as e:
+        print(f"[FAIL] Test 2: Explicit Source Language Enforcement failed! ({e})")
+
+    # 3. Test task assignment rules
+    total += 1
+    try:
+        t_a = "translate" if normalize_language_code("none") == "en" else "transcribe"
+        assert t_a == "transcribe", f"Expected 'transcribe', got '{t_a}'"
+
+        t_b = "translate" if normalize_language_code("English") == "en" else "transcribe"
+        assert t_b == "translate", f"Expected 'translate', got '{t_b}'"
+
+        t_c = "translate" if normalize_language_code("Telugu") == "en" else "transcribe"
+        assert t_c == "transcribe", f"Expected 'transcribe', got '{t_c}'"
+
+        print("[PASS] Test 3: Task Assignment Rules (transcribe vs translate for English target)")
+        passed += 1
+    except AssertionError as e:
+        print(f"[FAIL] Test 3: Task Assignment Rules failed! ({e})")
+
+    # 4. Test script sanity helpers
+    total += 1
+    try:
+        assert contains_devanagari("नमस्ते दुनिया") is True
+        assert contains_devanagari("Hello World") is False
+        assert contains_cjk("こんにちは世界") is True
+        assert contains_cyrillic("Привет мир") is True
+
+        assert is_valid_script_for_lang("नमस्ते दुनिया", "hi") is True
+        assert is_valid_script_for_lang("こんにちは世界", "hi") is False
+        assert is_valid_script_for_lang("Привет мир", "hi") is False
+        assert is_valid_script_for_lang("Hello world", "en") is True
+        assert is_valid_script_for_lang("こんにちは", "en") is False
+
+        print("[PASS] Test 4: Script Sanity Helpers (Devanagari/CJK/Cyrillic detection & validation)")
+        passed += 1
+    except AssertionError as e:
+        print(f"[FAIL] Test 4: Script Sanity Helpers failed! ({e})")
+
+    print("=" * 60)
+    if passed == total:
+        print(f"  ALL {total} LANGUAGE SELF-TEST SUITES PASSED! ({passed}/{total})")
+        print("=" * 60)
+        sys.exit(0)
+    else:
+        print(f"  LANGUAGE SELF-TESTS FAILED! ({passed}/{total} passed)")
+        print("=" * 60)
+        sys.exit(1)
+
 def main():
     parser = argparse.ArgumentParser(description="Caption Generator Backend CLI")
-    parser.add_argument("--audio", required=True, help="Path to input audio file")
+    parser.add_argument("--audio", required=False, help="Path to input audio file")
     parser.add_argument("--model", default="base", help="Whisper model (tiny, base, small, medium, large-v3)")
     parser.add_argument("--device", default="auto", help="Hardware device (cuda, cpu, auto)")
     parser.add_argument("--language", default="auto", help="Source audio language (auto, en, es, hi, etc.)")
@@ -755,8 +840,15 @@ def main():
     parser.add_argument("--max_dur", type=float, default=3.0, help="Max cue duration in seconds")
     parser.add_argument("--gap_frames", type=int, default=0, help="Gap between cues in frames")
     parser.add_argument("--line_mode", default="double", choices=["single", "double"], help="Single or double line layout")
+    parser.add_argument("--selftest-languages", action="store_true", help="Run standalone backend language self-tests")
 
     args = parser.parse_args()
+
+    if args.selftest_languages:
+        run_language_selftests()
+
+    if not args.audio:
+        parser.error("--audio argument is required unless running --selftest-languages")
 
     # Backward compatibility for --translate flag
     target_lang = args.target_language
