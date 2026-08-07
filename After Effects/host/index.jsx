@@ -86,13 +86,50 @@ function checkLayerHasAudio(layer) {
     return true;
 }
 
+function getActiveComp() {
+    if (!app || !app.project) return null;
+
+    try {
+        if (app.project.activeItem && isCompItem(app.project.activeItem)) {
+            return app.project.activeItem;
+        }
+    } catch(e1) {}
+
+    try {
+        if (app.activeViewer && app.activeViewer.type === ViewerType.VIEWER_COMPOSITION) {
+            if (app.project.activeItem && isCompItem(app.project.activeItem)) {
+                return app.project.activeItem;
+            }
+        }
+    } catch(e2) {}
+
+    try {
+        for (var i = 1; i <= app.project.numItems; i++) {
+            var item = app.project.item(i);
+            if (isCompItem(item) && item.selected) {
+                return item;
+            }
+        }
+    } catch(e3) {}
+
+    try {
+        for (var j = 1; j <= app.project.numItems; j++) {
+            var item2 = app.project.item(j);
+            if (isCompItem(item2)) {
+                return item2;
+            }
+        }
+    } catch(e4) {}
+
+    return null;
+}
+
 $._PPP_.exportAudio = function(targetWavPath) {
     try {
-        if (!app || !app.project || !app.project.activeItem || !isCompItem(app.project.activeItem)) {
+        var comp = getActiveComp();
+        if (!comp) {
             return "ERR|Could not read the active composition. Make sure a composition is open in After Effects.";
         }
-
-        var comp = app.project.activeItem;
 
         // Determine export range: Work Area if set, else full comp duration
         var exportStart = 0;
@@ -406,11 +443,10 @@ function padNum(n) {
 
 $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting) {
     try {
-        if (!app || !app.project || !app.project.activeItem || !isCompItem(app.project.activeItem)) {
+        var comp = getActiveComp();
+        if (!comp) {
             return "ERR|Could not read the active composition. Make sure a composition is open in After Effects.";
         }
-
-        var comp = app.project.activeItem;
         var jsonFile = new File(jsonPath);
         if (!jsonFile.exists) {
             return "ERR|Styled subtitle payload file missing on disk.";
@@ -713,7 +749,7 @@ function autoFitLayerKeyframes(layer, mode) {
 
 $._PPP_.applyPresetToLayers = function(jsonPath) {
     try {
-        var targetComp = (app && app.project) ? app.project.activeComp : null;
+        var targetComp = getActiveComp();
         if (!targetComp) {
             return "ERR|No active composition found. Please select or open a composition in After Effects.";
         }

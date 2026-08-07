@@ -487,32 +487,103 @@ function updateIconToggleActiveState(groupId, targetValue) {
     });
 }
 
+function getNodeUserPresets() {
+    var presets = [];
+    if (typeof require === "undefined") return presets;
+    try {
+        var fs = require("fs");
+        var path = require("path");
+        var os = require("os");
+
+        var userHome = os.homedir();
+        var searchRoots = [
+            path.join(userHome, "Documents", "Adobe"),
+            path.join(userHome, "OneDrive", "Documents", "Adobe"),
+            path.join(userHome, "Documents"),
+            path.join(process.env.APPDATA || "", "Adobe"),
+            "C:\\Program Files\\Adobe"
+        ];
+
+        function scanFfxNode(dir, depth) {
+            if (!dir || depth > 6 || !fs.existsSync(dir)) return;
+            try {
+                var entries = fs.readdirSync(dir, { withFileTypes: true });
+                for (var i = 0; i < entries.length; i++) {
+                    var entry = entries[i];
+                    var fullPath = path.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        scanFfxNode(fullPath, depth + 1);
+                    } else if (entry.isFile() && entry.name.toLowerCase().endsWith(".ffx")) {
+                        var cleanName = entry.name.replace(/\.ffx$/i, "");
+                        presets.push({
+                            name: cleanName,
+                            path: fullPath.replace(/\\/g, "/")
+                        });
+                    }
+                }
+            } catch(e) {}
+        }
+
+        searchRoots.forEach(function(root) {
+            if (fs.existsSync(root)) {
+                scanFfxNode(root, 0);
+            }
+        });
+    } catch(eNode) {}
+
+    return presets;
+}
+
 function loadAndRenderUserPresets() {
     var optgroup = document.getElementById("optgroupUserPresets");
     if (!optgroup) return;
 
-    if (typeof ExtendScriptBridge !== "undefined" && ExtendScriptBridge.scanUserPresets) {
-        ExtendScriptBridge.scanUserPresets(function(presets) {
-            optgroup.innerHTML = "";
-            if (presets && presets.length > 0) {
-                presets.forEach(function(p) {
-                    var opt = document.createElement("option");
-                    opt.value = "ffx:" + p.path;
-                    opt.innerText = "⭐ " + p.name;
-                    optgroup.appendChild(opt);
-                });
-            } else {
-                var emptyOpt = document.createElement("option");
-                emptyOpt.value = "none";
-                emptyOpt.innerText = "No user presets (.ffx) found in User Presets folder";
-                emptyOpt.disabled = true;
-                optgroup.appendChild(emptyOpt);
+    var allPresets = getNodeUserPresets();
+
+    var renderPresets = function(combinedList) {
+        var unique = [];
+        var seen = {};
+        combinedList.forEach(function(p) {
+            if (p && p.path) {
+                var key = p.path.toLowerCase();
+                if (!seen[key]) {
+                    seen[key] = true;
+                    unique.push(p);
+                }
             }
-            var savedPreset = UserPreferences.load().aePreset;
-            var sPreset = document.getElementById("selectAEPreset");
-            if (sPreset && savedPreset) sPreset.value = savedPreset;
-            updateStylizeSummary();
         });
+
+        optgroup.innerHTML = "";
+        if (unique.length > 0) {
+            unique.forEach(function(p) {
+                var opt = document.createElement("option");
+                opt.value = "ffx:" + p.path;
+                opt.innerText = "⭐ " + p.name;
+                optgroup.appendChild(opt);
+            });
+        } else {
+            var emptyOpt = document.createElement("option");
+            emptyOpt.value = "none";
+            emptyOpt.innerText = "No user presets (.ffx) found in User Presets folder";
+            emptyOpt.disabled = true;
+            optgroup.appendChild(emptyOpt);
+        }
+
+        var savedPreset = UserPreferences.load().aePreset;
+        var sPreset = document.getElementById("selectAEPreset");
+        if (sPreset && savedPreset) {
+            sPreset.value = savedPreset;
+        }
+        updateStylizeSummary();
+    };
+
+    if (typeof ExtendScriptBridge !== "undefined" && ExtendScriptBridge.scanUserPresets) {
+        ExtendScriptBridge.scanUserPresets(function(jsxPresets) {
+            var merged = allPresets.concat(jsxPresets || []);
+            renderPresets(merged);
+        });
+    } else {
+        renderPresets(allPresets);
     }
 }
 
