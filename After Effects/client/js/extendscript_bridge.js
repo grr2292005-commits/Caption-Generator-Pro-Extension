@@ -25,6 +25,28 @@ var ExtendScriptBridge = {
         });
     },
 
+    scanUserPresets: function(callback) {
+        this.loadHost(function(ok) {
+            if (!ok) {
+                if (callback) callback([]);
+                return;
+            }
+            ExtendScriptBridge.csInterface.evalScript("$._PPP_.scanUserPresets()", function(result) {
+                if (!result || result.indexOf("OK|") !== 0) {
+                    if (callback) callback([]);
+                    return;
+                }
+                try {
+                    var jsonStr = result.substring(3);
+                    var list = JSON.parse(jsonStr);
+                    if (callback) callback(list || []);
+                } catch(e) {
+                    if (callback) callback([]);
+                }
+            });
+        });
+    },
+
     exportAudio: function(targetPath, callback) {
         if (typeof targetPath === "function") {
             callback = targetPath;

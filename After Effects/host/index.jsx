@@ -587,12 +587,128 @@ $._PPP_.importStyledSubtitles = function(jsonPath, importMethod, replaceExisting
     }
 };
 
+$._PPP_.scanUserPresets = function() {
+    try {
+        var presets = [];
+        var docsFolder = Folder.myDocuments;
+        if (docsFolder && docsFolder.exists) {
+            var adobeFolder = new Folder(docsFolder.fsName.replace(/\\/g, "/") + "/Adobe");
+            if (adobeFolder.exists) {
+                var aeFolders = adobeFolder.getFiles(function(f) {
+                    return f instanceof Folder && f.name.indexOf("After Effects") !== -1;
+                });
+                for (var i = 0; i < aeFolders.length; i++) {
+                    var userPresetsFolder = new Folder(aeFolders[i].fsName.replace(/\\/g, "/") + "/User Presets");
+                    if (userPresetsFolder.exists) {
+                        scanFfxFiles(userPresetsFolder, presets);
+                    }
+                }
+            }
+        }
+        return "OK|" + stringifyJson(presets);
+    } catch(e) {
+        return "ERR|" + e.toString();
+    }
+};
+
+function scanFfxFiles(folder, resultArr) {
+    if (!folder || !folder.exists) return;
+    try {
+        var files = folder.getFiles();
+        for (var i = 0; i < files.length; i++) {
+            var item = files[i];
+            if (item instanceof Folder) {
+                scanFfxFiles(item, resultArr);
+            } else if (item instanceof File && item.name.match(/\.ffx$/i)) {
+                var cleanName = item.name.replace(/\.ffx$/i, "");
+                resultArr.push({
+                    name: cleanName,
+                    path: item.fsName.replace(/\\/g, "/")
+                });
+            }
+        }
+    } catch(eScan) {}
+}
+
 function resetPropKeyframes(prop) {
     if (prop && prop.numKeys > 0) {
         for (var k = prop.numKeys; k >= 1; k--) {
             try { prop.removeKey(k); } catch(eK) {}
         }
     }
+}
+
+function collectKeyframedProperties(container, outArr) {
+    if (!container) return;
+    try {
+        if (container.numProperties) {
+            for (var i = 1; i <= container.numProperties; i++) {
+                var prop = container.property(i);
+                if (prop) {
+                    if (prop.numKeys && prop.numKeys > 0) {
+                        outArr.push(prop);
+                    }
+                    if (prop.numProperties) {
+                        collectKeyframedProperties(prop, outArr);
+                    }
+                }
+            }
+        }
+    } catch(eColl) {}
+}
+
+function autoFitLayerKeyframes(layer, mode) {
+    if (!layer || !mode || mode === "natural") return;
+    try {
+        var lIn = layer.inPoint;
+        var lOut = layer.outPoint;
+        var lDur = lOut - lIn;
+        if (lDur <= 0) return;
+
+        var keyProps = [];
+        collectKeyframedProperties(layer, keyProps);
+        if (keyProps.length === 0) return;
+
+        var minT = 999999;
+        var maxT = -999999;
+
+        for (var i = 0; i < keyProps.length; i++) {
+            var prop = keyProps[i];
+            for (var k = 1; k <= prop.numKeys; k++) {
+                var kt = prop.keyTime(k);
+                if (kt < minT) minT = kt;
+                if (kt > maxT) maxT = kt;
+            }
+        }
+
+        if (minT >= maxT || minT >= 999999) return;
+        var origSpan = maxT - minT;
+
+        for (var p = 0; p < keyProps.length; p++) {
+            var targetProp = keyProps[p];
+            var keyData = [];
+            for (var k2 = 1; k2 <= targetProp.numKeys; k2++) {
+                var oldTime = targetProp.keyTime(k2);
+                var val = targetProp.keyValue(k2);
+                var newTime = oldTime;
+
+                if (mode === "fit_duration") {
+                    var rel = (oldTime - minT) / origSpan;
+                    newTime = lIn + (rel * lDur);
+                } else if (mode === "start_only") {
+                    newTime = lIn + (oldTime - minT);
+                }
+                keyData.push({ time: newTime, value: val });
+            }
+
+            resetPropKeyframes(targetProp);
+            for (var kd = 0; kd < keyData.length; kd++) {
+                try {
+                    targetProp.setValueAtTime(keyData[kd].time, keyData[kd].value);
+                } catch(eSet) {}
+            }
+        }
+    } catch(eFit) {}
 }
 
 $._PPP_.applyPresetToLayers = function(jsonPath) {
@@ -621,6 +737,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
         if (!payload) return "ERR|Empty preset payload.";
 
         var preset = payload.preset || "pop_in";
+        var keyframeFit = payload.keyframeFit || "fit_duration";
         var targetingMode = payload.targetingMode || "selected"; // 'selected', 'cgp_all', 'comp_all'
         var style = payload.style || {};
 
@@ -714,28 +831,44 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
             resetPropKeyframes(scaleProp);
             resetPropKeyframes(opacProp);
 
-            // Apply keyframe animation preset
-            if (preset === "pop_in" || preset === "word_kinetic") {
-                scaleProp.setValueAtTime(start, [0, 0]);
-                scaleProp.setValueAtTime(start + 0.08, [125, 125]);
-                scaleProp.setValueAtTime(start + 0.15, [100, 100]);
-            } else if (preset === "karaoke_highlight") {
-                scaleProp.setValueAtTime(start, [100, 100]);
-                scaleProp.setValueAtTime(start + 0.06, [118, 118]);
-                scaleProp.setValueAtTime(start + 0.14, [100, 100]);
-            } else if (preset === "clean_fade") {
-                opacProp.setValueAtTime(start, 0);
-                opacProp.setValueAtTime(start + 0.15, 100);
-                opacProp.setValueAtTime(end - 0.15, 100);
-                opacProp.setValueAtTime(end, 0);
-            } else if (preset === "lower_third_soft") {
-                opacProp.setValueAtTime(start, 0);
-                opacProp.setValueAtTime(start + 0.25, 100);
-                opacProp.setValueAtTime(end - 0.25, 100);
-                opacProp.setValueAtTime(end, 0);
+            // Check if applying a .ffx user preset file vs built-in preset
+            if (preset && (preset.indexOf("ffx:") === 0 || preset.indexOf(".ffx") !== -1 || preset.indexOf("/") !== -1 || preset.indexOf("\\") !== -1)) {
+                var ffxPathClean = preset.replace(/^ffx:/, "");
+                var ffxFile = new File(ffxPathClean);
+                if (ffxFile.exists) {
+                    try {
+                        textLayer.applyPreset(ffxFile);
+                        autoFitLayerKeyframes(textLayer, keyframeFit);
+                    } catch(eFfx) {
+                        console.log("Error applying ffx preset:", eFfx);
+                    }
+                }
+            } else {
+                // Apply built-in keyframe animation preset
+                if (preset === "pop_in" || preset === "word_kinetic") {
+                    scaleProp.setValueAtTime(start, [0, 0]);
+                    scaleProp.setValueAtTime(start + 0.08, [125, 125]);
+                    scaleProp.setValueAtTime(start + 0.15, [100, 100]);
+                } else if (preset === "karaoke_highlight") {
+                    scaleK = textLayer.property("Scale");
+                    scaleK.setValueAtTime(start, [100, 100]);
+                    scaleK.setValueAtTime(start + 0.06, [118, 118]);
+                    scaleK.setValueAtTime(start + 0.14, [100, 100]);
+                } else if (preset === "clean_fade") {
+                    opacProp.setValueAtTime(start, 0);
+                    opacProp.setValueAtTime(start + 0.15, 100);
+                    opacProp.setValueAtTime(end - 0.15, 100);
+                    opacProp.setValueAtTime(end, 0);
+                } else if (preset === "lower_third_soft") {
+                    opacProp.setValueAtTime(start, 0);
+                    opacProp.setValueAtTime(start + 0.25, 100);
+                    opacProp.setValueAtTime(end - 0.25, 100);
+                    opacProp.setValueAtTime(end, 0);
 
-                scaleProp.setValueAtTime(start, [94, 94]);
-                scaleProp.setValueAtTime(start + 0.3, [100, 100]);
+                    scaleProp.setValueAtTime(start, [94, 94]);
+                    scaleProp.setValueAtTime(start + 0.3, [100, 100]);
+                }
+                autoFitLayerKeyframes(textLayer, keyframeFit);
             }
         }
 

@@ -207,17 +207,33 @@
             </div>
         </div>
 
-        <!-- 1. Animation Preset -->
+        <!-- 1. Text Animation Presets (.ffx & User Presets) -->
         <div class="card">
-            <div class="card-title">A. Animation Preset</div>
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>A. User Text Presets (.ffx)</span>
+                <button id="btnRefreshPresets" style="background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 11px;" title="Refresh User Presets">🔄 Refresh</button>
+            </div>
             <div class="form-group">
-                <label for="selectAEPreset">Built-in Preset:</label>
+                <label for="selectAEPreset">Select Preset (.ffx):</label>
                 <select id="selectAEPreset">
-                    <option value="pop_in">Pop In (Scale Pulse)</option>
-                    <option value="clean_fade">Clean Fade (Opacity In/Out)</option>
-                    <option value="karaoke_highlight">Karaoke Highlight (Glow & Scale)</option>
-                    <option value="lower_third_soft">Lower Third Soft (Subtle Scale & Fade)</option>
-                    <option value="word_kinetic">Word by Word Kinetic (Rapid Pop)</option>
+                    <optgroup label="User Presets (.ffx)" id="optgroupUserPresets">
+                        <option value="none">Scanning user presets folder...</option>
+                    </optgroup>
+                    <optgroup label="Built-in Presets">
+                        <option value="pop_in">Pop In (Scale Pulse)</option>
+                        <option value="clean_fade">Clean Fade (Opacity In/Out)</option>
+                        <option value="karaoke_highlight">Karaoke Highlight (Glow & Scale)</option>
+                        <option value="lower_third_soft">Lower Third Soft (Subtle Scale & Fade)</option>
+                        <option value="word_kinetic">Word by Word Kinetic (Rapid Pop)</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="form-group" style="margin-top: 8px;">
+                <label for="selectKeyframeFit">Keyframe Alignment:</label>
+                <select id="selectKeyframeFit">
+                    <option value="fit_duration">Fit Keyframes: First at Layer Start, Last at Layer End</option>
+                    <option value="start_only">Align First Keyframe to Layer Start (Original Spacing)</option>
+                    <option value="natural">Original Preset Timing (No Adjustment)</option>
                 </select>
             </div>
         </div>
@@ -235,39 +251,45 @@
             </div>
         </div>
 
-        <!-- 3. Words Per Layer (For New Layer Generation) -->
+        <!-- 3. Layout & Alignment (Icon Buttons) -->
         <div class="card">
-            <div class="card-title">C. Density / Words Per Layer</div>
-            <div class="form-group">
-                <label for="selectWordsPerLayer">Generation Chunking:</label>
-                <select id="selectWordsPerLayer">
-                    <option value="full">Full Cue (Default Sentence)</option>
-                    <option value="1">1 Word Per Layer (Kinetic Pop)</option>
-                    <option value="2">2 Words Per Layer</option>
-                    <option value="3">3 Words Per Layer</option>
-                </select>
-            </div>
-        </div>
+            <div class="card-title">C. Layout & Alignment</div>
+            <input type="hidden" id="selectPosition" value="bottom">
+            <input type="hidden" id="selectAlign" value="center">
 
-        <!-- 4. Layout & Position -->
-        <div class="card">
-            <div class="card-title">D. Layout & Alignment</div>
-            <div class="form-row">
-                <div class="form-group half">
-                    <label for="selectPosition">Vertical Position:</label>
-                    <select id="selectPosition">
-                        <option value="bottom">Bottom (Lower Third)</option>
-                        <option value="center">Center Screen</option>
-                        <option value="top">Top Header</option>
-                    </select>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; margin-bottom: 6px; font-size: 11px; color: var(--text-secondary);">Vertical Position:</label>
+                <div class="icon-toggle-group" id="groupPosition">
+                    <button class="icon-toggle-btn" data-val="top" title="Top Header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="4" x2="20" y2="4"/><rect x="7" y="7" width="10" height="5" rx="1"/></svg>
+                        <span>Top</span>
+                    </button>
+                    <button class="icon-toggle-btn" data-val="center" title="Center Screen">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"/><rect x="7" y="9.5" width="10" height="5" rx="1"/></svg>
+                        <span>Center</span>
+                    </button>
+                    <button class="icon-toggle-btn active" data-val="bottom" title="Bottom (Lower Third)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="20" x2="20" y2="20"/><rect x="7" y="12" width="10" height="5" rx="1"/></svg>
+                        <span>Bottom</span>
+                    </button>
                 </div>
-                <div class="form-group half">
-                    <label for="selectAlign">Text Align:</label>
-                    <select id="selectAlign">
-                        <option value="center">Center</option>
-                        <option value="left">Left</option>
-                        <option value="right">Right</option>
-                    </select>
+            </div>
+
+            <div>
+                <label style="display: block; margin-bottom: 6px; font-size: 11px; color: var(--text-secondary);">Horizontal Alignment:</label>
+                <div class="icon-toggle-group" id="groupAlign">
+                    <button class="icon-toggle-btn" data-val="left" title="Align Left">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="14" y2="12"/><line x1="4" y1="18" x2="18" y2="18"/></svg>
+                        <span>Left</span>
+                    </button>
+                    <button class="icon-toggle-btn active" data-val="center" title="Align Center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="5" y1="18" x2="19" y2="18"/></svg>
+                        <span>Center</span>
+                    </button>
+                    <button class="icon-toggle-btn" data-val="right" title="Align Right">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="6" y1="18" x2="20" y2="18"/></svg>
+                        <span>Right</span>
+                    </button>
                 </div>
             </div>
         </div>

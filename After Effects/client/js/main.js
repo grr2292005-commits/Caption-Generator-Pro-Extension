@@ -354,10 +354,10 @@ var UserPreferences = {
         if (selHw) prefs.hardware = selHw.value;
 
         // AE Stylize tab options
-        var sWpl = document.getElementById("selectWordsPerLayer");
-        if (sWpl) prefs.wordsPerLayer = sWpl.value;
         var sPreset = document.getElementById("selectAEPreset");
         if (sPreset) prefs.aePreset = sPreset.value;
+        var sFit = document.getElementById("selectKeyframeFit");
+        if (sFit) prefs.keyframeFit = sFit.value;
         var sTgt = document.getElementById("selectAETargeting");
         if (sTgt) prefs.aeTargeting = sTgt.value;
         var sPos = document.getElementById("selectPosition");
@@ -412,16 +412,22 @@ var UserPreferences = {
         if (selHw) selHw.value = prefs.hardware || "cuda";
 
         // AE Stylize tab preferences restore
-        var sWpl = document.getElementById("selectWordsPerLayer");
-        if (sWpl) sWpl.value = prefs.wordsPerLayer || "full";
         var sPreset = document.getElementById("selectAEPreset");
         if (sPreset) sPreset.value = prefs.aePreset || "pop_in";
+        var sFit = document.getElementById("selectKeyframeFit");
+        if (sFit) sFit.value = prefs.keyframeFit || "fit_duration";
         var sTgt = document.getElementById("selectAETargeting");
         if (sTgt) sTgt.value = prefs.aeTargeting || "cgp_all";
         var sPos = document.getElementById("selectPosition");
-        if (sPos) sPos.value = prefs.position || "bottom";
+        if (sPos) {
+            sPos.value = prefs.position || "bottom";
+            updateIconToggleActiveState("groupPosition", sPos.value);
+        }
         var sAlign = document.getElementById("selectAlign");
-        if (sAlign) sAlign.value = prefs.align || "center";
+        if (sAlign) {
+            sAlign.value = prefs.align || "center";
+            updateIconToggleActiveState("groupAlign", sAlign.value);
+        }
         var sFSize = document.getElementById("sliderStylizeFontSize");
         var lblFSize = document.getElementById("lblStylizeFontSizeVal");
         if (sFSize) { sFSize.value = prefs.fontSize || 24; if (lblFSize) lblFSize.innerText = (prefs.fontSize || 24) + "px"; }
@@ -444,18 +450,90 @@ var UserPreferences = {
     }
 };
 
+function setupIconToggleGroups() {
+    var groups = ["groupPosition", "groupAlign"];
+    groups.forEach(function(groupId) {
+        var group = document.getElementById(groupId);
+        if (!group) return;
+        var targetId = groupId === "groupPosition" ? "selectPosition" : "selectAlign";
+        var inputEl = document.getElementById(targetId);
+
+        var btns = group.querySelectorAll(".icon-toggle-btn");
+        btns.forEach(function(btn) {
+            btn.addEventListener("click", function(e) {
+                e.preventDefault();
+                btns.forEach(function(b) { b.classList.remove("active"); });
+                btn.classList.add("active");
+                var val = btn.getAttribute("data-val");
+                if (inputEl) {
+                    inputEl.value = val;
+                    UserPreferences.autoSave();
+                }
+            });
+        });
+    });
+}
+
+function updateIconToggleActiveState(groupId, targetValue) {
+    var group = document.getElementById(groupId);
+    if (!group) return;
+    var btns = group.querySelectorAll(".icon-toggle-btn");
+    btns.forEach(function(btn) {
+        if (btn.getAttribute("data-val") === targetValue) {
+            btn.classList.add("active");
+        } else {
+            btn.classList.remove("active");
+        }
+    });
+}
+
+function loadAndRenderUserPresets() {
+    var optgroup = document.getElementById("optgroupUserPresets");
+    if (!optgroup) return;
+
+    if (typeof ExtendScriptBridge !== "undefined" && ExtendScriptBridge.scanUserPresets) {
+        ExtendScriptBridge.scanUserPresets(function(presets) {
+            optgroup.innerHTML = "";
+            if (presets && presets.length > 0) {
+                presets.forEach(function(p) {
+                    var opt = document.createElement("option");
+                    opt.value = "ffx:" + p.path;
+                    opt.innerText = "⭐ " + p.name;
+                    optgroup.appendChild(opt);
+                });
+            } else {
+                var emptyOpt = document.createElement("option");
+                emptyOpt.value = "none";
+                emptyOpt.innerText = "No user presets (.ffx) found in User Presets folder";
+                emptyOpt.disabled = true;
+                optgroup.appendChild(emptyOpt);
+            }
+            var savedPreset = UserPreferences.load().aePreset;
+            var sPreset = document.getElementById("selectAEPreset");
+            if (sPreset && savedPreset) sPreset.value = savedPreset;
+            updateStylizeSummary();
+        });
+    }
+}
+
 function updateStylizeSummary() {
     var summaryEl = document.getElementById("stylizeSummary");
     if (!summaryEl) return;
     var prefs = UserPreferences.gather();
     
-    var wMap = { "full": "Full Cue", "1": "1 Word/Layer", "2": "2 Words/Layer", "3": "3 Words/Layer" };
     var prMap = { "pop_in": "Pop In", "clean_fade": "Clean Fade", "karaoke_highlight": "Karaoke Glow", "lower_third_soft": "Lower Third", "word_kinetic": "Word Kinetic" };
     var tgtMap = { "cgp_all": "All CGP Layers", "selected": "Selected Layers", "comp_all": "All Text Layers" };
     
-    var txt = "Preset: " + (prMap[prefs.aePreset] || "Pop In") +
+    var presetDisplay = prefs.aePreset || "Pop In";
+    if (presetDisplay.indexOf("ffx:") === 0) {
+        var parts = presetDisplay.split("/");
+        presetDisplay = "⭐ " + parts[parts.length - 1].replace(/\.ffx$/i, "");
+    } else {
+        presetDisplay = prMap[presetDisplay] || presetDisplay;
+    }
+
+    var txt = "Preset: " + presetDisplay +
               " | Target: " + (tgtMap[prefs.aeTargeting] || "All CGP Layers") +
-              " | Words: " + (wMap[prefs.wordsPerLayer] || "Full Cue") +
               " | Size: " + (prefs.fontSize || 24) + "px";
     summaryEl.innerText = txt;
 }
@@ -483,6 +561,23 @@ document.addEventListener("DOMContentLoaded", function() {
             if (target) target.classList.add("active");
         });
     });
+
+    // Setup icon toggle button groups and scan user presets
+    setupIconToggleGroups();
+    loadAndRenderUserPresets();
+
+    var btnRefresh = document.getElementById("btnRefreshPresets");
+    if (btnRefresh) {
+        btnRefresh.addEventListener("click", function(e) {
+            e.preventDefault();
+            loadAndRenderUserPresets();
+        });
+    }
+
+    var selectFit = document.getElementById("selectKeyframeFit");
+    if (selectFit) {
+        selectFit.addEventListener("change", function() { UserPreferences.autoSave(); });
+    }
 
     // 2. Restore saved preferences BEFORE setting up listeners
     var savedPrefs = UserPreferences.load();
