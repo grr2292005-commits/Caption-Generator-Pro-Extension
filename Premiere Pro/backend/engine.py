@@ -188,161 +188,124 @@ class CaptionBackend:
             print(f"FFmpeg mix exception ({eMix}), returning primary clip segment fallback...")
             return seg_files[0][0]
 
-    def transcribe_audio(self, audio_path, model_name="base", device="auto", language="auto", target_language="none", remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):
-        # Synthesize sequence timeline audio if sequence manifest JSON is provided
-        if audio_path.endswith(".json") and os.path.exists(audio_path):
-            print(f"Synthesizing sequence timeline audio from manifest '{audio_path}'...")
-            audio_path = self.synthesize_sequence_audio(audio_path)
-
-        # Safe device selection with CUDA check
-        try:
-            import torch
-            if device == "cuda" and not torch.cuda.is_available():
-                print("CUDA requested but not available. Falling back to CPU mode...")
-                device = "cpu"
-            elif device == "auto":
-                device = "cuda" if torch.cuda.is_available() else "cpu"
-        except Exception:
-            device = "cpu"
-
-        print(f"Loading model '{model_name}' on device '{device}'...")
-        
-        cache_dir = os.path.expanduser("~/.cache/whisper")
-        os.makedirs(cache_dir, exist_ok=True)
-
+    def process_single_clip_audio(self, audio_file_path, model_obj, is_faster_whisper, task, whisper_lang, remove_fillers, max_chars, max_dur, gap_frames, line_mode, target_language):
+        """Transcribes a single WAV file using preloaded Whisper model and returns (captions, words, warning)."""
         result_segments = []
-        task = "translate" if (target_language == "en") else "transcribe"
-        whisper_lang = None if (language == "auto" or not language) else language
-
-        # Try faster-whisper first for high speed CTranslate2 performance, fallback to openai-whisper
-        try:
-            from faster_whisper import WhisperModel
-            compute_type = "float16" if device == "cuda" else "int8"
-            model = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=cache_dir)
-            segments, info = model.transcribe(audio_path, word_timestamps=True, task=task, language=whisper_lang)
-            
+        if is_faster_whisper:
+            segments, info = model_obj.transcribe(audio_file_path, word_timestamps=True, task=task, language=whisper_lang)
             for seg in segments:
                 words = []
                 if hasattr(seg, 'words') and seg.words:
                     for w in seg.words:
                         words.append({"word": w.word, "start": w.start, "end": w.end})
                 result_segments.append({"text": seg.text, "words": words, "start": seg.start, "end": seg.end})
-        except Exception as e:
-            print(f"faster-whisper unavailable or failed ({e}), falling back to standard whisper...")
-            try:
-                import whisper
-                model = whisper.load_model(model_name, device=device, download_root=cache_dir)
-                kwargs = {"word_timestamps": True, "task": task}
-                if whisper_lang:
-                    kwargs["language"] = whisper_lang
-                res = model.transcribe(audio_path, **kwargs)
-                result_segments = res.get("segments", [])
-            except Exception as e2:
-                print(f"Standard whisper failed: {e2}")
-                raise e2
+        else:
+            kwargs = {"word_timestamps": True, "task": task}
+            if whisper_lang:
+                kwargs["language"] = whisper_lang
+            res = model_obj.transcribe(audio_file_path, **kwargs)
+            result_segments = res.get("segments", [])
 
-        # Process words into structured caption cues AND word-level timestamps
         captions = []
         words_output = []
 
-        try:
-            all_words = []
-            for seg in result_segments:
-                words = seg.get("words", [])
-                if words:
-                    all_words.extend(words)
-                else:
-                    seg_text = seg.get("text", "").strip()
-                    if seg_text:
-                        all_words.append({
-                            "word": seg_text,
-                            "start": seg.get("start", 0.0),
-                            "end": seg.get("end", 1.0)
-                        })
+        all_words = []
+        for seg in result_segments:
+            words = seg.get("words", [])
+            if words:
+                all_words.extend(words)
+            else:
+                seg_text = seg.get("text", "").strip()
+                if seg_text:
+                    all_words.append({
+                        "word": seg_text,
+                        "start": seg.get("start", 0.0),
+                        "end": seg.get("end", 1.0)
+                    })
 
-            current_text = []
-            current_start = None
-            current_end = None
-            current_cue_words = []
-            gap_seconds = gap_frames * 0.033
-            cue_idx = 0
+        current_text = []
+        current_start = None
+        current_end = None
+        current_cue_words = []
+        gap_seconds = gap_frames * 0.033
+        cue_idx = 0
 
-            for word_data in all_words:
-                raw_w = word_data.get("word", "")
-                word = raw_w.strip()
-                
-                if remove_fillers:
-                    clean_w = re.sub(r'[^\w\s]', '', word).lower()
-                    if clean_w in self.filler_words:
-                        continue
-                        
-                if not word: 
+        for word_data in all_words:
+            raw_w = word_data.get("word", "")
+            word = raw_w.strip()
+            
+            if remove_fillers:
+                clean_w = re.sub(r'[^\w\s]', '', word).lower()
+                if clean_w in self.filler_words:
                     continue
+                    
+            if not word: 
+                continue
 
-                start = float(word_data.get("start", 0.0))
-                end = float(word_data.get("end", 0.0))
+            start = float(word_data.get("start", 0.0))
+            end = float(word_data.get("end", 0.0))
 
-                w_obj = {
-                    "word": word,
-                    "start": round(start, 3),
-                    "end": round(end, 3),
-                    "cue_index": cue_idx
-                }
+            w_obj = {
+                "word": word,
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "cue_index": cue_idx
+            }
 
-                if current_start is None:
-                    current_start, current_end = start, end
+            if current_start is None:
+                current_start, current_end = start, end
+                current_text = [word]
+                current_cue_words = [w_obj]
+            else:
+                temp_text = " ".join(current_text + [word])
+                duration = end - current_start
+
+                if len(temp_text) > max_chars or duration > max_dur:
+                    captions.append({
+                        "text": self.format_lines(" ".join(current_text), line_mode),
+                        "start": round(current_start, 3),
+                        "end": round(current_end, 3)
+                    })
+                    words_output.extend(current_cue_words)
+
+                    cue_idx += 1
+                    current_start, current_end = start + gap_seconds, end
                     current_text = [word]
+                    w_obj["cue_index"] = cue_idx
                     current_cue_words = [w_obj]
                 else:
-                    temp_text = " ".join(current_text + [word])
-                    duration = end - current_start
+                    current_text.append(word)
+                    current_end = end
+                    w_obj["cue_index"] = cue_idx
+                    current_cue_words.append(w_obj)
 
-                    if len(temp_text) > max_chars or duration > max_dur:
-                        captions.append({
-                            "text": self.format_lines(" ".join(current_text), line_mode),
-                            "start": round(current_start, 3),
-                            "end": round(current_end, 3)
-                        })
-                        words_output.extend(current_cue_words)
+        if current_text:
+            captions.append({
+                "text": self.format_lines(" ".join(current_text), line_mode),
+                "start": round(current_start, 3),
+                "end": round(current_end, 3)
+            })
+            words_output.extend(current_cue_words)
 
-                        cue_idx += 1
-                        current_start, current_end = start + gap_seconds, end
-                        current_text = [word]
-                        w_obj["cue_index"] = cue_idx
-                        current_cue_words = [w_obj]
-                    else:
-                        current_text.append(word)
-                        current_end = end
-                        w_obj["cue_index"] = cue_idx
-                        current_cue_words.append(w_obj)
+        # Filter out empty/hallucinated cues (e.g. single punctuation like '"', '.', ',')
+        valid_caps = []
+        valid_words = []
+        for cap in captions:
+            txt_clean = re.sub(r'[^\w\s]', '', cap.get("text", "")).strip()
+            if txt_clean:
+                valid_caps.append(cap)
+        for w_item in words_output:
+            w_clean = re.sub(r'[^\w\s]', '', w_item.get("word", "")).strip()
+            if w_clean:
+                valid_words.append(w_item)
 
-            if current_text:
-                captions.append({
-                    "text": self.format_lines(" ".join(current_text), line_mode),
-                    "start": round(current_start, 3),
-                    "end": round(current_end, 3)
-                })
-                words_output.extend(current_cue_words)
-
-        except Exception as proc_err:
-            print(f"Word processing error: {proc_err}. Falling back to cue-only segment list.")
-            captions = []
-            words_output = []
-            for seg in result_segments:
-                txt = seg.get("text", "").strip()
-                if txt:
-                    captions.append({
-                        "text": self.format_lines(txt, line_mode),
-                        "start": round(float(seg.get("start", 0.0)), 3),
-                        "end": round(float(seg.get("end", 1.0)), 3)
-                    })
+        captions = valid_caps
+        words_output = valid_words
 
         # Non-English Target Translation: Translate Cues and Words
         translation_warning = None
         if target_language not in ["none", "en"]:
-            print(f"Translating captions and words to target language '{target_language}'...")
             try:
-                # 1. Translate caption cues
                 for cap in captions:
                     if cap.get("text"):
                         lines = cap["text"].split("\n")
@@ -356,7 +319,6 @@ class CaptionBackend:
                                 t_lines.append("")
                         cap["text"] = "\n".join(t_lines)
 
-                # 2. Translate word array items
                 for w_item in words_output:
                     if w_item.get("word"):
                         w_raw = w_item["word"].strip()
@@ -365,10 +327,160 @@ class CaptionBackend:
                             if t_w:
                                 w_item["word"] = t_w
             except Exception as tr_err:
-                print(f"Target language translation to '{target_language}' failed: {tr_err}")
                 translation_warning = f"Translation to '{target_language}' failed ({str(tr_err)}). Using original audio text."
 
         return captions, words_output, translation_warning
+
+    def transcribe_audio(self, audio_path, model_name="base", device="auto", language="auto", target_language="none", remove_fillers=False, max_chars=42, max_dur=3.0, gap_frames=0, line_mode="double"):
+        import subprocess
+        import shutil
+
+        # Safe device selection with CUDA check
+        try:
+            import torch
+            if device == "cuda" and not torch.cuda.is_available():
+                print("CUDA requested but not available. Falling back to CPU mode...")
+                device = "cpu"
+            elif device == "auto":
+                device = "cuda" if torch.cuda.is_available() else "cpu"
+        except Exception:
+            device = "cpu"
+
+        print(f"Loading Whisper model '{model_name}' on device '{device}'...")
+        cache_dir = os.path.expanduser("~/.cache/whisper")
+        os.makedirs(cache_dir, exist_ok=True)
+
+        task = "translate" if (target_language == "en") else "transcribe"
+        whisper_lang = None if (language == "auto" or not language) else language
+
+        # Load Whisper model ONCE for high efficiency
+        is_faster_whisper = False
+        model_obj = None
+        try:
+            from faster_whisper import WhisperModel
+            compute_type = "float16" if device == "cuda" else "int8"
+            model_obj = WhisperModel(model_name, device=device, compute_type=compute_type, download_root=cache_dir)
+            is_faster_whisper = True
+        except Exception as e:
+            print(f"faster-whisper unavailable ({e}), loading standard whisper...")
+            import whisper
+            model_obj = whisper.load_model(model_name, device=device, download_root=cache_dir)
+
+        # Resolve FFmpeg binary
+        ffmpeg_bin = self.ffmpeg_exe
+        if not os.path.exists(ffmpeg_bin):
+            ffmpeg_bin = shutil.which("ffmpeg") or "ffmpeg"
+
+        master_captions = []
+        master_words = []
+        warnings_list = []
+
+        # If audio_path is sequence manifest JSON: PER-CLIP TRANSCRIPTION
+        if audio_path.endswith(".json") and os.path.exists(audio_path):
+            file_size = os.path.getsize(audio_path)
+            if file_size == 0:
+                raise RuntimeError(f"Sequence manifest file at '{audio_path}' is empty (0 bytes).")
+
+            with open(audio_path, 'r', encoding='utf-8-sig') as f:
+                manifest_data = json.load(f)
+
+            clips = manifest_data.get("clips", [])
+            if not clips:
+                raise RuntimeError("No audio/video clips found in sequence manifest JSON.")
+
+            temp_dir = os.path.dirname(audio_path)
+            print(f"Starting Per-Clip Transcription for {len(clips)} clip(s)...")
+
+            for idx, clip in enumerate(clips):
+                m_path = clip.get("mediaPath", "")
+                if not m_path or not os.path.exists(m_path):
+                    warnings_list.append(f"Skipped clip {idx+1}: Media file missing '{m_path}'")
+                    continue
+
+                c_in = clip.get("mediaCutIn", 0.0)
+                dur = clip.get("cutDuration", 1.0)
+                rel_start = clip.get("relSeqStart", 0.0)
+                c_name = clip.get("clipName", f"Clip_{idx+1}")
+
+                seg_path = os.path.join(temp_dir, f"cgp_clip_{idx}.wav")
+                cmd_trim = [
+                    ffmpeg_bin, "-y",
+                    "-ss", str(c_in),
+                    "-t", str(dur),
+                    "-i", m_path,
+                    "-vn", "-sn",
+                    "-ar", "16000",
+                    "-ac", "1",
+                    "-c:a", "pcm_s16le",
+                    seg_path
+                ]
+                try:
+                    rTrim = subprocess.run(cmd_trim, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    if rTrim.returncode != 0 or not os.path.exists(seg_path) or os.path.getsize(seg_path) <= 500:
+                        warnings_list.append(f"Skipped clip {idx+1} ({c_name}): Audio extraction failed")
+                        continue
+                except Exception as eExtract:
+                    warnings_list.append(f"Skipped clip {idx+1} ({c_name}): {eExtract}")
+                    continue
+
+                # Per-Clip Whisper Pass (Auto language detects per clip if source language is 'auto')
+                try:
+                    c_caps, c_words, c_warn = self.process_single_clip_audio(
+                        seg_path, model_obj, is_faster_whisper, task, whisper_lang,
+                        remove_fillers, max_chars, max_dur, gap_frames, line_mode, target_language
+                    )
+                    if c_warn: warnings_list.append(f"Clip {idx+1} ({c_name}): {c_warn}")
+
+                    # Apply clip relative sequence start offset to all cue & word timestamps
+                    for cap in c_caps:
+                        cap["start"] = round(cap["start"] + rel_start, 3)
+                        cap["end"] = round(cap["end"] + rel_start, 3)
+                        master_captions.append(cap)
+
+                    for w in c_words:
+                        w["start"] = round(w["start"] + rel_start, 3)
+                        w["end"] = round(w["end"] + rel_start, 3)
+                        master_words.append(w)
+
+                except Exception as eClipTr:
+                    warnings_list.append(f"Skipped clip {idx+1} ({c_name}): Transcription error ({eClipTr})")
+                finally:
+                    try: os.remove(seg_path)
+                    except Exception: pass
+
+        else:
+            # Single audio WAV file transcription
+            c_caps, c_words, c_warn = self.process_single_clip_audio(
+                audio_path, model_obj, is_faster_whisper, task, whisper_lang,
+                remove_fillers, max_chars, max_dur, gap_frames, line_mode, target_language
+            )
+            if c_warn: warnings_list.append(c_warn)
+            master_captions = c_caps
+            master_words = c_words
+
+        if not master_captions:
+            err_msg = "; ".join(warnings_list) if warnings_list else "No speech detected in timeline audio."
+            raise RuntimeError(f"Transcription yielded no subtitle cues. ({err_msg})")
+
+        # Sort combined captions and words by sequence timestamp
+        master_captions.sort(key=lambda x: x["start"])
+        master_words.sort(key=lambda x: x["start"])
+
+        # Re-index cue_index for all words based on sorted master_captions
+        for w in master_words:
+            w_start = w["start"]
+            found_cue = 0
+            for idx, cap in enumerate(master_captions):
+                if cap["start"] <= w_start <= cap["end"]:
+                    found_cue = idx
+                    break
+                elif cap["start"] > w_start:
+                    found_cue = max(0, idx - 1)
+                    break
+            w["cue_index"] = found_cue
+
+        combined_warning = "; ".join(warnings_list) if warnings_list else None
+        return master_captions, master_words, combined_warning
 
     def format_lines(self, text, mode):
         if mode == "double":

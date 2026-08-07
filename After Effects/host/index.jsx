@@ -73,7 +73,9 @@ $._PPP_.exportAudio = function(targetWavPath) {
                         clipStart: lIn,
                         clipEnd: lOut,
                         startTime: lStart,
-                        hasAudio: layer.hasAudio && layer.audioEnabled
+                        hasAudio: layer.hasAudio && layer.audioEnabled,
+                        clipName: layer.name || ("Layer_" + i),
+                        trackIndex: i
                     });
                 }
             }
@@ -111,6 +113,8 @@ $._PPP_.exportAudio = function(targetWavPath) {
                 var relSeqStart = effStart - exportStart;
 
                 activeManifestClips.push({
+                    clipName: item.clipName,
+                    trackIndex: item.trackIndex,
                     mediaPath: item.mediaPath,
                     mediaCutIn: Math.max(0, Math.round(mediaCutIn * 1000) / 1000),
                     cutDuration: Math.round(dur * 1000) / 1000,

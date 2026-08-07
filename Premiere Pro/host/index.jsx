@@ -88,7 +88,9 @@ $._PPP_.exportAudio = function(targetWavPath) {
                             mediaPath: mp.replace(/\\/g, "/"),
                             clipStart: cStart,
                             clipEnd: cEnd,
-                            clipIn: cIn
+                            clipIn: cIn,
+                            clipName: item.name || item.projectItem.name || ("Clip_" + (clipsToProcess.length + 1)),
+                            trackIndex: t
                         });
                     }
                 }
@@ -126,6 +128,8 @@ $._PPP_.exportAudio = function(targetWavPath) {
                 var relSeqStart = effStart - exportStart;
 
                 activeManifestClips.push({
+                    clipName: item.clipName,
+                    trackIndex: item.trackIndex,
                     mediaPath: item.mediaPath,
                     mediaCutIn: Math.round(mediaCutIn * 1000) / 1000,
                     cutDuration: Math.round(dur * 1000) / 1000,
