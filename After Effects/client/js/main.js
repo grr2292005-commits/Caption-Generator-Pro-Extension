@@ -945,7 +945,13 @@ function runPythonBackend(audioPath, projectDetails, callback) {
     if (removeFillers) args.push("--remove_fillers");
     if (versioning) args.push("--enable_versioning");
 
-    var proc = cp.spawn(pythonExe, args, { cwd: baseDir });
+    var proc = cp.spawn(pythonExe, args, {
+        cwd: baseDir,
+        env: Object.assign({}, process.env, {
+            PYTHONIOENCODING: "utf-8",
+            PYTHONUTF8: "1"
+        })
+    });
     var stdoutData = "";
     var stderrData = "";
 

@@ -5,21 +5,89 @@ import json
 import re
 from datetime import timedelta
 
+# Force UTF-8 encoding for standard output and standard error on Windows
+if sys.platform == "win32":
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+
+LANG_MAP = {
+    "auto": "auto", "none": "none",
+    "english": "en", "en": "en", "en-us": "en", "en-gb": "en",
+    "hindi": "hi", "hi": "hi", "hi-in": "hi", "hi_in": "hi",
+    "spanish": "es", "es": "es", "es-es": "es", "es-mx": "es",
+    "french": "fr", "fr": "fr", "fr-fr": "fr",
+    "german": "de", "de": "de", "de-de": "de",
+    "japanese": "ja", "ja": "ja", "ja-jp": "ja",
+    "chinese": "zh", "zh": "zh", "zh-cn": "zh", "zh-tw": "zh",
+    "russian": "ru", "ru": "ru",
+    "italian": "it", "it": "it",
+    "portuguese": "pt", "pt": "pt", "pt-br": "pt",
+    "korean": "ko", "ko": "ko",
+    "arabic": "ar", "ar": "ar"
+}
+
+def normalize_language_code(lang):
+    if not lang:
+        return "auto"
+    clean = str(lang).strip().lower()
+    if clean in LANG_MAP:
+        return LANG_MAP[clean]
+    match = re.search(r'([a-z]{2})', clean)
+    if match:
+        return match.group(1)
+    return clean
+
+def contains_cjk(text):
+    """Detects Chinese/Japanese/Korean CJK Unified Ideographs."""
+    return bool(re.search(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]', text))
+
+def contains_cyrillic(text):
+    """Detects Russian/Cyrillic characters."""
+    return bool(re.search(r'[\u0400-\u04ff]', text))
+
+def contains_devanagari(text):
+    """Detects Hindi Devanagari script."""
+    return bool(re.search(r'[\u0900-\u097f]', text))
+
+def is_valid_script_for_lang(text, lang_code):
+    if not text:
+        return True
+    lang = normalize_language_code(lang_code)
+
+    # Hindi output MUST NOT contain CJK (Chinese/Japanese) or Cyrillic characters
+    if lang == "hi":
+        if contains_cjk(text) or contains_cyrillic(text):
+            return False
+        return True
+
+    # English output MUST NOT contain CJK or Cyrillic characters
+    if lang == "en":
+        if contains_cjk(text) or contains_cyrillic(text):
+            return False
+        return True
+
+    # Western languages MUST NOT contain CJK characters
+    if lang in ["es", "fr", "de", "it", "pt"]:
+        if contains_cjk(text):
+            return False
+        return True
+
+    return True
+
 def translate_text(text, target_lang):
     if not text or not target_lang or target_lang in ["none", "auto"]:
         return text
 
-    target_code = target_lang.lower().strip()
-    if target_code in ["hindi", "hi_in", "hi-in"]:
-        target_code = "hi"
-    elif target_code in ["spanish", "es_es", "es-es"]:
-        target_code = "es"
+    target_code = normalize_language_code(target_lang)
 
     # 1. Try deep_translator if available
     try:
         from deep_translator import GoogleTranslator
         res = GoogleTranslator(source='auto', target=target_code).translate(text)
-        if res and res.strip():
+        if res and res.strip() and is_valid_script_for_lang(res, target_code):
             return res.strip()
     except Exception:
         pass
@@ -35,7 +103,9 @@ def translate_text(text, target_lang):
             if data and isinstance(data, list) and len(data) > 0 and data[0]:
                 translated_parts = [item[0] for item in data[0] if item and item[0]]
                 if translated_parts:
-                    return "".join(translated_parts).strip()
+                    candidate = "".join(translated_parts).strip()
+                    if is_valid_script_for_lang(candidate, target_code):
+                        return candidate
     except Exception as err:
         print(f"Google translate gtx fallback error: {err}")
 
@@ -48,10 +118,13 @@ def translate_text(text, target_lang):
         with urllib.request.urlopen(req, timeout=8) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if data and isinstance(data, list) and len(data) > 0:
+                candidate = ""
                 if isinstance(data[0], str):
-                    return data[0].strip()
+                    candidate = data[0].strip()
                 elif isinstance(data[0], list) and len(data[0]) > 0:
-                    return str(data[0][0]).strip()
+                    candidate = str(data[0][0]).strip()
+                if candidate and is_valid_script_for_lang(candidate, target_code):
+                    return candidate
     except Exception as errAlt:
         print(f"Google translate dict-chrome fallback error: {errAlt}")
 
