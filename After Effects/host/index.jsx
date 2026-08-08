@@ -789,15 +789,28 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
         } else if (targetingMode === "cgp_all") {
             for (var l = 1; l <= targetComp.numLayers; l++) {
                 var lyr = targetComp.layer(l);
-                if (isTextLayer(lyr) && (lyr.name.indexOf("CGP_Caption_") === 0 || lyr.comment === "CGP_SUBTITLE")) {
-                    targetLayers.push(lyr);
+                if (isTextLayer(lyr)) {
+                    var lName = (lyr.name || "").toLowerCase();
+                    var lComment = (lyr.comment || "").toLowerCase();
+                    if (lName.indexOf("cgp") !== -1 || lName.indexOf("caption") !== -1 || lName.indexOf("sub") !== -1 || lComment.indexOf("cgp") !== -1) {
+                        targetLayers.push(lyr);
+                    }
+                }
+            }
+            // Fallback: If no explicit CGP names matched, target all text layers in comp
+            if (targetLayers.length === 0) {
+                for (var l2 = 1; l2 <= targetComp.numLayers; l2++) {
+                    var lyr2 = targetComp.layer(l2);
+                    if (isTextLayer(lyr2)) {
+                        targetLayers.push(lyr2);
+                    }
                 }
             }
         } else if (targetingMode === "comp_all") {
-            for (var l2 = 1; l2 <= targetComp.numLayers; l2++) {
-                var lyr2 = targetComp.layer(l2);
-                if (isTextLayer(lyr2)) {
-                    targetLayers.push(lyr2);
+            for (var l3 = 1; l3 <= targetComp.numLayers; l3++) {
+                var lyr3 = targetComp.layer(l3);
+                if (isTextLayer(lyr3)) {
+                    targetLayers.push(lyr3);
                 }
             }
         }

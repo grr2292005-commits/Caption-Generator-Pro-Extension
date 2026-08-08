@@ -412,8 +412,12 @@ var UserPreferences = {
         if (selHw) selHw.value = prefs.hardware || "cuda";
 
         // AE Stylize tab preferences restore
-        var sPreset = document.getElementById("selectAEPreset");
-        if (sPreset) sPreset.value = prefs.aePreset || "pop_in";
+        if (window.PresetSelect) {
+            window.PresetSelect.setValue(prefs.aePreset || "pop_in");
+        } else {
+            var sPreset = document.getElementById("selectAEPreset");
+            if (sPreset) sPreset.value = prefs.aePreset || "pop_in";
+        }
         var sFit = document.getElementById("selectKeyframeFit");
         if (sFit) sFit.value = prefs.keyframeFit || "fit_duration";
         var sTgt = document.getElementById("selectAETargeting");
@@ -428,17 +432,6 @@ var UserPreferences = {
             sAlign.value = prefs.align || "center";
             updateIconToggleActiveState("groupAlign", sAlign.value);
         }
-        var sFSize = document.getElementById("sliderStylizeFontSize");
-        var lblFSize = document.getElementById("lblStylizeFontSizeVal");
-        if (sFSize) { sFSize.value = prefs.fontSize || 24; if (lblFSize) lblFSize.innerText = (prefs.fontSize || 24) + "px"; }
-        var cText = document.getElementById("colorText");
-        if (cText) cText.value = prefs.textColor || "#FFFFFF";
-        var cHl = document.getElementById("colorHighlight");
-        if (cHl) cHl.value = prefs.highlightColor || "#FFD700";
-        var chkStr = document.getElementById("chkStroke");
-        if (chkStr) chkStr.checked = prefs.enableStroke !== false;
-        var cStr = document.getElementById("colorStroke");
-        if (cStr) cStr.value = prefs.strokeColor || "#000000";
 
         updateStylizeSummary();
     },
@@ -534,46 +527,47 @@ function getNodeUserPresets() {
     return presets;
 }
 
-function loadAndRenderUserPresets() {
-    var optgroup = document.getElementById("optgroupUserPresets");
-    if (!optgroup) return;
+var BUILTIN_PRESETS = [
+    { code: "pop_in", name: "Pop In (Scale Pulse)" },
+    { code: "clean_fade", name: "Clean Fade (Opacity In/Out)" },
+    { code: "karaoke_highlight", name: "Karaoke Highlight (Glow & Scale)" },
+    { code: "lower_third_soft", name: "Lower Third Soft (Subtle Scale & Fade)" },
+    { code: "word_kinetic", name: "Word by Word Kinetic (Rapid Pop)" }
+];
 
+function loadAndRenderUserPresets() {
     var allPresets = getNodeUserPresets();
 
     var renderPresets = function(combinedList) {
-        var unique = [];
+        var uniqueUserPresets = [];
         var seen = {};
-        combinedList.forEach(function(p) {
+        (combinedList || []).forEach(function(p) {
             if (p && p.path) {
                 var key = p.path.toLowerCase();
                 if (!seen[key]) {
                     seen[key] = true;
-                    unique.push(p);
+                    uniqueUserPresets.push({
+                        code: "ffx:" + p.path,
+                        name: "⭐ " + p.name
+                    });
                 }
             }
         });
 
-        optgroup.innerHTML = "";
-        if (unique.length > 0) {
-            unique.forEach(function(p) {
-                var opt = document.createElement("option");
-                opt.value = "ffx:" + p.path;
-                opt.innerText = "⭐ " + p.name;
-                optgroup.appendChild(opt);
-            });
+        var fullOptionsList = uniqueUserPresets.concat(BUILTIN_PRESETS);
+
+        window.PresetSelect = SearchableSelect.init("containerAEPreset", fullOptionsList, function(val) {
+            UserPreferences.autoSave();
+        });
+
+        var savedPreset = UserPreferences.load().aePreset || "pop_in";
+        if (window.PresetSelect) {
+            window.PresetSelect.setValue(savedPreset);
         } else {
-            var emptyOpt = document.createElement("option");
-            emptyOpt.value = "none";
-            emptyOpt.innerText = "No user presets (.ffx) found in User Presets folder";
-            emptyOpt.disabled = true;
-            optgroup.appendChild(emptyOpt);
+            var hiddenEl = document.getElementById("selectAEPreset");
+            if (hiddenEl) hiddenEl.value = savedPreset;
         }
 
-        var savedPreset = UserPreferences.load().aePreset;
-        var sPreset = document.getElementById("selectAEPreset");
-        if (sPreset && savedPreset) {
-            sPreset.value = savedPreset;
-        }
         updateStylizeSummary();
     };
 
@@ -605,7 +599,8 @@ function updateStylizeSummary() {
 
     var txt = "Preset: " + presetDisplay +
               " | Target: " + (tgtMap[prefs.aeTargeting] || "All CGP Layers") +
-              " | Size: " + (prefs.fontSize || 24) + "px";
+              " | Position: " + (prefs.position || "bottom") +
+              " | Align: " + (prefs.align || "center");
     summaryEl.innerText = txt;
 }
 

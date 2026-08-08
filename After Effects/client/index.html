@@ -210,23 +210,19 @@
         <!-- 1. Text Animation Presets (.ffx & User Presets) -->
         <div class="card">
             <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>A. User Text Presets (.ffx)</span>
+                <span>A. Text Presets (.ffx & Built-in)</span>
                 <button id="btnRefreshPresets" style="background: none; border: none; color: var(--accent-blue); cursor: pointer; font-size: 11px;" title="Refresh User Presets">🔄 Refresh</button>
             </div>
             <div class="form-group">
-                <label for="selectAEPreset">Select Preset (.ffx):</label>
-                <select id="selectAEPreset">
-                    <optgroup label="User Presets (.ffx)" id="optgroupUserPresets">
-                        <option value="none">Scanning user presets folder...</option>
-                    </optgroup>
-                    <optgroup label="Built-in Presets">
-                        <option value="pop_in">Pop In (Scale Pulse)</option>
-                        <option value="clean_fade">Clean Fade (Opacity In/Out)</option>
-                        <option value="karaoke_highlight">Karaoke Highlight (Glow & Scale)</option>
-                        <option value="lower_third_soft">Lower Third Soft (Subtle Scale & Fade)</option>
-                        <option value="word_kinetic">Word by Word Kinetic (Rapid Pop)</option>
-                    </optgroup>
-                </select>
+                <label for="inputAEPreset">Select Preset:</label>
+                <div class="search-select" id="containerAEPreset">
+                    <input type="text" id="inputAEPreset" class="search-select-input" value="Pop In (Scale Pulse)" placeholder="Search presets..." readonly>
+                    <input type="hidden" id="selectAEPreset" value="pop_in">
+                    <div class="search-select-dropdown" id="dropdownAEPreset">
+                        <input type="text" class="search-select-filter" placeholder="Type preset name to search...">
+                        <div class="search-select-options"></div>
+                    </div>
+                </div>
             </div>
             <div class="form-group" style="margin-top: 8px;">
                 <label for="selectKeyframeFit">Keyframe Alignment:</label>
@@ -294,47 +290,12 @@
             </div>
         </div>
 
-        <!-- 5. Appearance -->
+        <!-- 4. Action Buttons -->
         <div class="card">
-            <div class="card-title">E. Appearance & Typography</div>
-            <div class="form-group">
-                <label for="sliderStylizeFontSize">Font Size (px): <span id="lblStylizeFontSizeVal">24px</span></label>
-                <input type="range" id="sliderStylizeFontSize" min="12" max="72" value="24" step="1">
-            </div>
-
-            <div class="form-row" style="margin-bottom: 8px;">
-                <div class="form-group half">
-                    <label for="colorText">Text Color:</label>
-                    <input type="color" id="colorText" value="#FFFFFF" class="color-picker-input">
-                </div>
-                <div class="form-group half">
-                    <label for="colorHighlight">Highlight Color:</label>
-                    <input type="color" id="colorHighlight" value="#FFD700" class="color-picker-input">
-                </div>
-            </div>
-
-            <div class="form-row" style="align-items: center;">
-                <div class="form-group half">
-                    <label class="checkbox-label" style="font-size: 11px;">
-                        <input type="checkbox" id="chkStroke" checked> Enable Text Stroke
-                    </label>
-                </div>
-                <div class="form-group half">
-                    <label for="colorStroke">Stroke Color:</label>
-                    <input type="color" id="colorStroke" value="#000000" class="color-picker-input">
-                </div>
-            </div>
-        </div>
-
-        <!-- 5. Action Buttons -->
-        <div class="card">
-            <div class="card-title">E. Actions</div>
-            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
-                <button id="btnGenerateCaptionLayers" class="btn-primary" style="width: 100%;">✨ Create Subtitle Layers in Comp</button>
-                <div style="display: flex; gap: 8px;">
-                    <button id="btnApplyPresetSelected" class="btn-secondary" style="flex: 1; font-size: 10px; padding: 6px 4px;">Apply Preset to Selected Layers</button>
-                    <button id="btnApplyPresetAllCGP" class="btn-secondary" style="flex: 1; font-size: 10px; padding: 6px 4px;">Apply Preset to All CGP Layers</button>
-                </div>
+            <div class="card-title">D. Actions</div>
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
+                <button id="btnApplyPresetSelected" class="btn-primary" style="flex: 1; font-size: 11px; padding: 8px 6px;">Apply Preset to Selected Layers</button>
+                <button id="btnApplyPresetAllCGP" class="btn-primary" style="flex: 1; font-size: 11px; padding: 8px 6px;">Apply Preset to All CGP Layers</button>
             </div>
         </div>
     </main>
