@@ -865,6 +865,13 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 var ffxFile = new File(ffxPathClean);
                 if (ffxFile.exists) {
                     try {
+                        // Crucial ExtendScript Fix: Deselect all layers and select ONLY current textLayer
+                        // to prevent After Effects applyPreset from applying multiple times to all selected layers
+                        for (var d = 1; d <= targetComp.numLayers; d++) {
+                            try { targetComp.layer(d).selected = false; } catch(eD) {}
+                        }
+                        textLayer.selected = true;
+
                         // Set current timeline time to layer inPoint so preset keyframes start at layer start
                         targetComp.time = start;
                         textLayer.applyPreset(ffxFile);
@@ -898,6 +905,11 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
 
             // 6. Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
             autoFitLayerKeyframes(textLayer, keyframeFit);
+        }
+
+        // Restore active selection for all targeted layers
+        for (var r = 0; r < targetLayers.length; r++) {
+            try { targetLayers[r].selected = true; } catch(eR) {}
         }
 
         app.endUndoGroup();
