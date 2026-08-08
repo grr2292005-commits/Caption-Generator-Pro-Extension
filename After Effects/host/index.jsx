@@ -666,6 +666,21 @@ function scanFfxFiles(folder, resultArr) {
     } catch(eScan) {}
 }
 
+function removeAllTextAnimators(textLayer) {
+    if (!textLayer) return;
+    try {
+        var textGroup = textLayer.property("Text");
+        if (textGroup && textGroup.numProperties) {
+            for (var i = textGroup.numProperties; i >= 1; i--) {
+                var prop = textGroup.property(i);
+                if (prop && prop.name !== "Source Text" && prop.matchName !== "ADBE Text Document") {
+                    try { prop.remove(); } catch(eRem) {}
+                }
+            }
+        }
+    } catch(e) {}
+}
+
 function resetPropKeyframes(prop) {
     if (prop && prop.numKeys > 0) {
         for (var k = prop.numKeys; k >= 1; k--) {
@@ -809,7 +824,16 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
             var start = textLayer.inPoint;
             var end = textLayer.outPoint;
 
-            // 1. Update text justification without overwriting text string
+            // 1. Wipe old animators to prevent animator stacking/clutter (e.g. 6 animators)
+            removeAllTextAnimators(textLayer);
+
+            // 2. Clear old Transform keyframes before applying new animation
+            var scaleProp = textLayer.property("Scale");
+            var opacProp = textLayer.property("Opacity");
+            resetPropKeyframes(scaleProp);
+            resetPropKeyframes(opacProp);
+
+            // 3. Update text justification without overwriting text string
             try {
                 var textProp = textLayer.property("Source Text");
                 if (textProp && textProp.value) {
@@ -825,7 +849,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 }
             } catch(eText) {}
 
-            // 2. Align Anchor Point & Position
+            // 4. Align Anchor Point & Position
             try {
                 var bounds = textLayer.sourceRectAtTime(start, false);
                 var anchorX = bounds.left + bounds.width / 2;
@@ -835,11 +859,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 textLayer.property("Position").setValue([posX, posY]);
             } catch(ePos) {}
 
-            // 3. Clear old Transform keyframes before applying animation
-            var scaleProp = textLayer.property("Scale");
-            var opacProp = textLayer.property("Opacity");
-
-            // Check if applying a .ffx user preset file vs built-in preset
+            // 5. Check if applying a .ffx user preset file vs built-in preset
             if (preset && (preset.indexOf("ffx:") === 0 || preset.indexOf(".ffx") !== -1 || preset.indexOf("/") !== -1 || preset.indexOf("\\") !== -1)) {
                 var ffxPathClean = preset.replace(/^ffx:/, "");
                 var ffxFile = new File(ffxPathClean);
@@ -851,9 +871,6 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                     } catch(eFfx) {}
                 }
             } else {
-                resetPropKeyframes(scaleProp);
-                resetPropKeyframes(opacProp);
-
                 // Apply built-in keyframe animation preset
                 if (preset === "pop_in" || preset === "word_kinetic") {
                     scaleProp.setValueAtTime(start, [0, 0]);
@@ -879,7 +896,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 }
             }
 
-            // Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
+            // 6. Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
             autoFitLayerKeyframes(textLayer, keyframeFit);
         }
 
