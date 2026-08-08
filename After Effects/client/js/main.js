@@ -782,12 +782,6 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
-    if (btnPresetAllCGP) {
-        btnPresetAllCGP.addEventListener("click", function() {
-            applyPresetToAELayers("cgp_all");
-        });
-    }
-
     if (btnTranscribe) {
         btnTranscribe.addEventListener("click", function() {
             runTranscribeWorkflow();
@@ -1557,8 +1551,10 @@ function applyStylizedCaptionsFromTab() {
 function applyPresetToAELayers(overrideTargetingMode) {
     ensureLicensedAction("import", function() {
         var prefs = UserPreferences.gather();
-        var targetingMode = overrideTargetingMode || prefs.aeTargeting || "selected";
+        var targetingMode = overrideTargetingMode || "selected";
         var preset = prefs.aePreset || "pop_in";
+        var selFit = document.getElementById("selectKeyframeFit");
+        var keyframeFit = selFit ? selFit.value : (prefs.keyframeFit || "fit_duration");
 
         var styleConfig = {
             fontSize: parseInt(prefs.fontSize, 10) || 24,
@@ -1572,6 +1568,7 @@ function applyPresetToAELayers(overrideTargetingMode) {
 
         var payload = {
             preset: preset,
+            keyframeFit: keyframeFit,
             targetingMode: targetingMode,
             style: styleConfig
         };

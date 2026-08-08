@@ -717,7 +717,7 @@ function autoFitLayerKeyframes(layer, mode) {
             }
         }
 
-        if (minT >= maxT || minT >= 999999) return;
+        if (minT >= 999999) return;
         var origSpan = maxT - minT;
 
         for (var p = 0; p < keyProps.length; p++) {
@@ -729,8 +729,12 @@ function autoFitLayerKeyframes(layer, mode) {
                 var newTime = oldTime;
 
                 if (mode === "fit_duration") {
-                    var rel = (oldTime - minT) / origSpan;
-                    newTime = lIn + (rel * lDur);
+                    if (origSpan > 0) {
+                        var rel = (oldTime - minT) / origSpan;
+                        newTime = lIn + (rel * lDur);
+                    } else {
+                        newTime = lIn;
+                    }
                 } else if (mode === "start_only") {
                     newTime = lIn + (oldTime - minT);
                 }
@@ -774,31 +778,19 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
 
         var preset = payload.preset || "pop_in";
         var keyframeFit = payload.keyframeFit || "fit_duration";
-        var targetingMode = payload.targetingMode || "selected"; // 'selected', 'cgp_all', 'comp_all'
         var style = payload.style || {};
 
         var targetLayers = [];
-        if (targetingMode === "selected") {
-            if (targetComp.selectedLayers && targetComp.selectedLayers.length > 0) {
-                for (var s = 0; s < targetComp.selectedLayers.length; s++) {
-                    if (isTextLayer(targetComp.selectedLayers[s])) {
-                        targetLayers.push(targetComp.selectedLayers[s]);
-                    }
-                }
-            }
-        } else {
-            // 'cgp_all' or 'comp_all': Target all text layers in active composition
-            for (var l = 1; l <= targetComp.numLayers; l++) {
-                var lyr = targetComp.layer(l);
-                if (isTextLayer(lyr)) {
-                    targetLayers.push(lyr);
+        if (targetComp.selectedLayers && targetComp.selectedLayers.length > 0) {
+            for (var s = 0; s < targetComp.selectedLayers.length; s++) {
+                if (isTextLayer(targetComp.selectedLayers[s])) {
+                    targetLayers.push(targetComp.selectedLayers[s]);
                 }
             }
         }
 
         if (targetLayers.length === 0) {
-            var targetDesc = targetingMode === "selected" ? "selected text layers" : "text layers in composition";
-            return "ERR|No " + targetDesc + " found. Please select or open a composition with text layers.";
+            return "ERR|No text layers selected. Please select one or more text layers in your timeline.";
         }
 
         app.beginUndoGroup("CGP Apply Preset To Layers");
@@ -853,7 +845,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 var ffxFile = new File(ffxPathClean);
                 if (ffxFile.exists) {
                     try {
-                        // Set current timeline time to layer inPoint so preset keyframes start exactly at layer start
+                        // Set current timeline time to layer inPoint so preset keyframes start at layer start
                         targetComp.time = start;
                         textLayer.applyPreset(ffxFile);
                     } catch(eFfx) {}
@@ -886,6 +878,9 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                     scaleProp.setValueAtTime(start + 0.3, [100, 100]);
                 }
             }
+
+            // Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
+            autoFitLayerKeyframes(textLayer, keyframeFit);
         }
 
         app.endUndoGroup();
