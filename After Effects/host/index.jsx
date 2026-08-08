@@ -786,38 +786,19 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                     }
                 }
             }
-        } else if (targetingMode === "cgp_all") {
+        } else {
+            // 'cgp_all' or 'comp_all': Target all text layers in active composition
             for (var l = 1; l <= targetComp.numLayers; l++) {
                 var lyr = targetComp.layer(l);
                 if (isTextLayer(lyr)) {
-                    var lName = (lyr.name || "").toLowerCase();
-                    var lComment = (lyr.comment || "").toLowerCase();
-                    if (lName.indexOf("cgp") !== -1 || lName.indexOf("caption") !== -1 || lName.indexOf("sub") !== -1 || lComment.indexOf("cgp") !== -1) {
-                        targetLayers.push(lyr);
-                    }
-                }
-            }
-            // Fallback: If no explicit CGP names matched, target all text layers in comp
-            if (targetLayers.length === 0) {
-                for (var l2 = 1; l2 <= targetComp.numLayers; l2++) {
-                    var lyr2 = targetComp.layer(l2);
-                    if (isTextLayer(lyr2)) {
-                        targetLayers.push(lyr2);
-                    }
-                }
-            }
-        } else if (targetingMode === "comp_all") {
-            for (var l3 = 1; l3 <= targetComp.numLayers; l3++) {
-                var lyr3 = targetComp.layer(l3);
-                if (isTextLayer(lyr3)) {
-                    targetLayers.push(lyr3);
+                    targetLayers.push(lyr);
                 }
             }
         }
 
         if (targetLayers.length === 0) {
-            var targetDesc = targetingMode === "selected" ? "selected layers" : (targetingMode === "cgp_all" ? "CGP caption layers" : "all text layers");
-            return "ERR|No text layers found for: " + targetDesc + ". Please select a text layer first.";
+            var targetDesc = targetingMode === "selected" ? "selected text layers" : "text layers in composition";
+            return "ERR|No " + targetDesc + " found. Please select or open a composition with text layers.";
         }
 
         app.beginUndoGroup("CGP Apply Preset To Layers");
@@ -825,60 +806,46 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
         var compWidth = targetComp.width;
         var compHeight = targetComp.height;
 
-        var primaryRgb = hexToRgb(style.textColor || "#FFFFFF");
-        var highlightRgb = hexToRgb(style.highlightColor || "#FFD700");
-        var strokeRgb = hexToRgb(style.strokeColor || "#000000");
-
         var posVert = style.position || "bottom";
         var alignHoriz = style.align || "center";
 
         var posY = (posVert === "top") ? (compHeight * 0.15) : ((posVert === "center") ? (compHeight * 0.5) : (compHeight * 0.85));
         var posX = (alignHoriz === "left") ? (compWidth * 0.2) : ((alignHoriz === "right") ? (compWidth * 0.8) : (compWidth * 0.5));
 
-        var baseFontSize = style.fontSize ? (compHeight * (style.fontSize / 550.0)) : (compHeight * 0.05);
-
         for (var i = 0; i < targetLayers.length; i++) {
             var textLayer = targetLayers[i];
             var start = textLayer.inPoint;
             var end = textLayer.outPoint;
 
-            var textProp = textLayer.property("Source Text");
-            var textDocument = textProp.value;
+            // 1. Update text justification without overwriting text string
+            try {
+                var textProp = textLayer.property("Source Text");
+                if (textProp && textProp.value) {
+                    var textDocument = textProp.value;
+                    if (alignHoriz === "left") {
+                        textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
+                    } else if (alignHoriz === "right") {
+                        textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
+                    } else {
+                        textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+                    }
+                    textProp.setValue(textDocument);
+                }
+            } catch(eText) {}
 
-            textDocument.fontSize = baseFontSize;
-            textDocument.fillColor = (preset === "karaoke_highlight" ? highlightRgb : primaryRgb);
-            textDocument.applyFill = true;
+            // 2. Align Anchor Point & Position
+            try {
+                var bounds = textLayer.sourceRectAtTime(start, false);
+                var anchorX = bounds.left + bounds.width / 2;
+                var anchorY = bounds.top + bounds.height / 2;
 
-            if (style.enableStroke !== false) {
-                textDocument.strokeColor = strokeRgb;
-                textDocument.strokeWidth = compHeight * 0.004;
-                textDocument.applyStroke = true;
-            } else {
-                textDocument.applyStroke = false;
-            }
+                textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
+                textLayer.property("Position").setValue([posX, posY]);
+            } catch(ePos) {}
 
-            if (alignHoriz === "left") {
-                textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
-            } else if (alignHoriz === "right") {
-                textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
-            } else {
-                textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
-            }
-
-            textProp.setValue(textDocument);
-
-            var bounds = textLayer.sourceRectAtTime(start, false);
-            var anchorX = bounds.left + bounds.width / 2;
-            var anchorY = bounds.top + bounds.height / 2;
-
-            textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
-            textLayer.property("Position").setValue([posX, posY]);
-
-            // Clear old keyframes on modified properties
+            // 3. Clear old Transform keyframes before applying animation
             var scaleProp = textLayer.property("Scale");
             var opacProp = textLayer.property("Opacity");
-            resetPropKeyframes(scaleProp);
-            resetPropKeyframes(opacProp);
 
             // Check if applying a .ffx user preset file vs built-in preset
             if (preset && (preset.indexOf("ffx:") === 0 || preset.indexOf(".ffx") !== -1 || preset.indexOf("/") !== -1 || preset.indexOf("\\") !== -1)) {
@@ -886,23 +853,24 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 var ffxFile = new File(ffxPathClean);
                 if (ffxFile.exists) {
                     try {
+                        // Set current timeline time to layer inPoint so preset keyframes start exactly at layer start
+                        targetComp.time = start;
                         textLayer.applyPreset(ffxFile);
-                        autoFitLayerKeyframes(textLayer, keyframeFit);
-                    } catch(eFfx) {
-                        console.log("Error applying ffx preset:", eFfx);
-                    }
+                    } catch(eFfx) {}
                 }
             } else {
+                resetPropKeyframes(scaleProp);
+                resetPropKeyframes(opacProp);
+
                 // Apply built-in keyframe animation preset
                 if (preset === "pop_in" || preset === "word_kinetic") {
                     scaleProp.setValueAtTime(start, [0, 0]);
                     scaleProp.setValueAtTime(start + 0.08, [125, 125]);
                     scaleProp.setValueAtTime(start + 0.15, [100, 100]);
                 } else if (preset === "karaoke_highlight") {
-                    scaleK = textLayer.property("Scale");
-                    scaleK.setValueAtTime(start, [100, 100]);
-                    scaleK.setValueAtTime(start + 0.06, [118, 118]);
-                    scaleK.setValueAtTime(start + 0.14, [100, 100]);
+                    scaleProp.setValueAtTime(start, [100, 100]);
+                    scaleProp.setValueAtTime(start + 0.06, [118, 118]);
+                    scaleProp.setValueAtTime(start + 0.14, [100, 100]);
                 } else if (preset === "clean_fade") {
                     opacProp.setValueAtTime(start, 0);
                     opacProp.setValueAtTime(start + 0.15, 100);
@@ -917,7 +885,6 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                     scaleProp.setValueAtTime(start, [94, 94]);
                     scaleProp.setValueAtTime(start + 0.3, [100, 100]);
                 }
-                autoFitLayerKeyframes(textLayer, keyframeFit);
             }
         }
 
