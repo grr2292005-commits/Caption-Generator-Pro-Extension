@@ -810,15 +810,6 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
 
         app.beginUndoGroup("CGP Apply Preset To Layers");
 
-        var compWidth = targetComp.width;
-        var compHeight = targetComp.height;
-
-        var posVert = style.position || "bottom";
-        var alignHoriz = style.align || "center";
-
-        var posY = (posVert === "top") ? (compHeight * 0.15) : ((posVert === "center") ? (compHeight * 0.5) : (compHeight * 0.85));
-        var posX = (alignHoriz === "left") ? (compWidth * 0.2) : ((alignHoriz === "right") ? (compWidth * 0.8) : (compWidth * 0.5));
-
         for (var i = 0; i < targetLayers.length; i++) {
             var textLayer = targetLayers[i];
             var start = textLayer.inPoint;
@@ -833,33 +824,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
             resetPropKeyframes(scaleProp);
             resetPropKeyframes(opacProp);
 
-            // 3. Update text justification without overwriting text string
-            try {
-                var textProp = textLayer.property("Source Text");
-                if (textProp && textProp.value) {
-                    var textDocument = textProp.value;
-                    if (alignHoriz === "left") {
-                        textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
-                    } else if (alignHoriz === "right") {
-                        textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
-                    } else {
-                        textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
-                    }
-                    textProp.setValue(textDocument);
-                }
-            } catch(eText) {}
-
-            // 4. Align Anchor Point & Position
-            try {
-                var bounds = textLayer.sourceRectAtTime(start, false);
-                var anchorX = bounds.left + bounds.width / 2;
-                var anchorY = bounds.top + bounds.height / 2;
-
-                textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
-                textLayer.property("Position").setValue([posX, posY]);
-            } catch(ePos) {}
-
-            // 5. Check if applying a .ffx user preset file vs built-in preset
+            // 3. Check if applying a .ffx user preset file vs built-in preset
             if (preset && (preset.indexOf("ffx:") === 0 || preset.indexOf(".ffx") !== -1 || preset.indexOf("/") !== -1 || preset.indexOf("\\") !== -1)) {
                 var ffxPathClean = preset.replace(/^ffx:/, "");
                 var ffxFile = new File(ffxPathClean);
@@ -903,7 +868,7 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
                 }
             }
 
-            // 6. Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
+            // 4. Always apply keyframe alignment (Fit Keyframes to Layer Start/End, Start Only, Natural)
             autoFitLayerKeyframes(textLayer, keyframeFit);
         }
 

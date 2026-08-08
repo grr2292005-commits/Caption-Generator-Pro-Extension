@@ -1564,21 +1564,10 @@ function applyPresetToAELayers(overrideTargetingMode) {
         var selFit = document.getElementById("selectKeyframeFit");
         var keyframeFit = selFit ? selFit.value : (prefs.keyframeFit || "fit_duration");
 
-        var styleConfig = {
-            fontSize: parseInt(prefs.fontSize, 10) || 24,
-            textColor: prefs.textColor || "#FFFFFF",
-            highlightColor: prefs.highlightColor || "#FFD700",
-            enableStroke: prefs.enableStroke === true,
-            strokeColor: prefs.strokeColor || "#000000",
-            position: prefs.position || "bottom",
-            align: prefs.align || "center"
-        };
-
         var payload = {
             preset: preset,
             keyframeFit: keyframeFit,
-            targetingMode: targetingMode,
-            style: styleConfig
+            targetingMode: targetingMode
         };
 
         if (typeof require !== "undefined") {
