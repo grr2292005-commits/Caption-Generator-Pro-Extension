@@ -918,3 +918,91 @@ $._PPP_.applyPresetToLayers = function(jsonPath) {
         return "ERR|" + e.toString();
     }
 };
+
+$._PPP_.applyAlignmentToLayers = function(jsonPath) {
+    try {
+        var targetComp = getActiveComp();
+        if (!targetComp) {
+            return "ERR|No active composition found. Please select or open a composition in After Effects.";
+        }
+
+        var jsonFile = new File(jsonPath);
+        if (!jsonFile.exists) {
+            return "ERR|Alignment config file missing: " + jsonPath;
+        }
+
+        jsonFile.open("r");
+        var jsonText = jsonFile.read();
+        jsonFile.close();
+
+        var payload = null;
+        try {
+            payload = eval("(" + jsonText + ")");
+        } catch(eJson) {
+            return "ERR|Failed to parse alignment JSON payload: " + eJson.toString();
+        }
+
+        if (!payload) return "ERR|Empty alignment payload.";
+
+        var style = payload.style || {};
+        var targetLayers = [];
+        if (targetComp.selectedLayers && targetComp.selectedLayers.length > 0) {
+            for (var s = 0; s < targetComp.selectedLayers.length; s++) {
+                if (isTextLayer(targetComp.selectedLayers[s])) {
+                    targetLayers.push(targetComp.selectedLayers[s]);
+                }
+            }
+        }
+
+        if (targetLayers.length === 0) {
+            return "ERR|No text layers selected. Please select one or more text layers in your timeline.";
+        }
+
+        app.beginUndoGroup("CGP Apply Alignment To Layers");
+
+        var compWidth = targetComp.width;
+        var compHeight = targetComp.height;
+
+        var posVert = style.position || "bottom";
+        var alignHoriz = style.align || "center";
+
+        var posY = (posVert === "top") ? (compHeight * 0.15) : ((posVert === "center") ? (compHeight * 0.5) : (compHeight * 0.85));
+        var posX = (alignHoriz === "left") ? (compWidth * 0.2) : ((alignHoriz === "right") ? (compWidth * 0.8) : (compWidth * 0.5));
+
+        for (var i = 0; i < targetLayers.length; i++) {
+            var textLayer = targetLayers[i];
+            var start = textLayer.inPoint;
+
+            // 1. Update text justification without clearing or overwriting text string
+            try {
+                var textProp = textLayer.property("Source Text");
+                if (textProp && textProp.value) {
+                    var textDocument = textProp.value;
+                    if (alignHoriz === "left") {
+                        textDocument.justification = ParagraphJustification.LEFT_JUSTIFY;
+                    } else if (alignHoriz === "right") {
+                        textDocument.justification = ParagraphJustification.RIGHT_JUSTIFY;
+                    } else {
+                        textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+                    }
+                    textProp.setValue(textDocument);
+                }
+            } catch(eText) {}
+
+            // 2. Align Anchor Point & Position without touching keyframes or animators
+            try {
+                var bounds = textLayer.sourceRectAtTime(start, false);
+                var anchorX = bounds.left + bounds.width / 2;
+                var anchorY = bounds.top + bounds.height / 2;
+
+                textLayer.property("Anchor Point").setValue([anchorX, anchorY]);
+                textLayer.property("Position").setValue([posX, posY]);
+            } catch(ePos) {}
+        }
+
+        app.endUndoGroup();
+        return "OK|Successfully applied alignment to " + targetLayers.length + " text layers!";
+    } catch(e) {
+        return "ERR|" + e.toString();
+    }
+};

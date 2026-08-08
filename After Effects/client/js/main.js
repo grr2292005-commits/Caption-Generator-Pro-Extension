@@ -776,9 +776,17 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 
+    var btnApplyAlign = document.getElementById("btnApplyAlignment");
+
     if (btnPresetSel) {
         btnPresetSel.addEventListener("click", function() {
             applyPresetToAELayers("selected");
+        });
+    }
+
+    if (btnApplyAlign) {
+        btnApplyAlign.addEventListener("click", function() {
+            applyAlignmentToAELayers();
         });
     }
 
@@ -1590,6 +1598,39 @@ function applyPresetToAELayers(overrideTargetingMode) {
             });
         } else {
             showAlertModal("Success", "Applied preset '" + preset + "' to " + targetingMode + " (Browser Preview Mode)!");
+        }
+    });
+}
+
+function applyAlignmentToAELayers() {
+    ensureLicensedAction("import", function() {
+        var prefs = UserPreferences.gather();
+        var styleConfig = {
+            position: prefs.position || "bottom",
+            align: prefs.align || "center"
+        };
+
+        var payload = {
+            style: styleConfig
+        };
+
+        if (typeof require !== "undefined") {
+            var fs = require("fs");
+            var path = require("path");
+            var tempFolder = getTempFolder();
+            var jsonPath = path.join(tempFolder, "cgp_align_payload.json");
+            fs.writeFileSync(jsonPath, JSON.stringify(payload, null, 4), "utf-8");
+
+            ExtendScriptBridge.applyAlignmentToLayers(jsonPath, function(res) {
+                if (!res || !res.success) {
+                    var err = (res && res.error) ? res.error : "Failed to apply alignment to layers.";
+                    showAlertModal("Alignment Notice", err);
+                } else {
+                    showAlertModal("Success", res.message || "Applied alignment successfully!");
+                }
+            });
+        } else {
+            showAlertModal("Success", "Applied alignment (Browser Preview Mode)!");
         }
     });
 }
